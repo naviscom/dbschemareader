@@ -9,22 +9,22 @@ import (
 	"strings"
 )
 
-type table_struct struct {
+type Table_Struct struct {
 	Table_name          string
-	Table_Columns       []tableColumns
-	IndexDetails        []index_name_details
+	Table_Columns       []TableColumns
+	IndexDetails        []Index_Name_Details
 	OutputFileName      string
 	FunctionSignature   string
 	FunctionSignature2  string
   }
   
-  type index_name_details struct {
+  type Index_Name_Details struct {
 	IndexName       string
 	IndexColumn     []string
   }
   
   
-  type tableColumns struct {
+  type TableColumns struct {
 	Column_name     string
 	PrimaryFlag     bool
 	UniqueFlag      bool
@@ -32,11 +32,11 @@ type table_struct struct {
 	ColumnNameParams string
   }
   
-func ReadSchema(filePath string)  []table_struct {
+func ReadSchema(filePath string)  []Table_Struct {
 
-	var tableX []table_struct
-	var table table_struct
-	var tabColumns tableColumns
+	var tableX []Table_Struct
+	var table Table_Struct
+	var tabColumns TableColumns
 	readFile, err := os.Open(filePath)
 	if err != nil {
 	  fmt.Println(err)
@@ -101,7 +101,7 @@ func ReadSchema(filePath string)  []table_struct {
 		if res1[0] == "CREATE" && res1[1] == "INDEX" {
 		  for i:=0; i<len(tableX); i++{
 			if tableX[i].Table_name == strings.TrimSpace(res1[3][1:len(res1[3])-1]) { 
-			  var index index_name_details
+			  var index Index_Name_Details
 			  index.IndexName = strings.TrimSpace(res1[3][1:len(res1[3])-1]) + strconv.Itoa(rand.Intn(90000))
 			  for m :=4; m<len(res1); m++ {            
 				indexColumnName := res1[m]
