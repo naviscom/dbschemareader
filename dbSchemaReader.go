@@ -130,8 +130,9 @@ func ReadSchema(filePath string)  []Table_Struct {
 		  }
 		}
 		if res1[0] == "ALTER" && res1[4] == "FOREIGN" {
+			fmt.Println("I have found ALTER FOREIGN key line")
 			for i:=0; i<len(tableX); i++{
-				fmt.Println("I have found ALTER FOREIGN key line")
+				fmt.Println(tableX[i].Table_name, strings.TrimSpace(res1[2][1:len(res1[3])-1]))
 				var fkDetails ForeignKey_Details
 				if tableX[i].Table_name == strings.TrimSpace(res1[2][1:len(res1[3])-1]) { 
 				  //var index Index_Name_Details
