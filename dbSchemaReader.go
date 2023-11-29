@@ -13,6 +13,7 @@ type Table_Struct struct {
 	Table_name          string
 	Table_Columns       []TableColumns
 	IndexDetails        []Index_Name_Details
+	ForeignKeys			[]ForeignKey_Details
 	OutputFileName      string
 	FunctionSignature   string
 	FunctionSignature2  string
@@ -23,6 +24,12 @@ type Table_Struct struct {
 	IndexColumn     []string
   }
   
+  type ForeignKey_Details struct {
+	FK_Column       			string
+	FK_Related_Table			string
+	FK_Related_Table_Column		string
+  }
+
   
   type TableColumns struct {
 	Column_name     string
@@ -122,6 +129,23 @@ func ReadSchema(filePath string)  []Table_Struct {
 			}
 		  }
 		}
+		if res1[0] == "ALTER" && res1[4] == "FOREIGN" {
+			for i:=0; i<len(tableX); i++{
+				var fkDetails ForeignKey_Details
+				if tableX[i].Table_name == strings.TrimSpace(res1[2][1:len(res1[3])-1]) { 
+				  //var index Index_Name_Details
+				  //index.IndexName = strings.TrimSpace(res1[3][1:len(res1[3])-1]) + strconv.Itoa(rand.Intn(90000))
+				  fkDetails.FK_Column = res1[5]
+				  fkDetails.FK_Column = strings.TrimSpace(fkDetails.FK_Column[2:len(fkDetails.FK_Column)-2])
+				  fkDetails.FK_Related_Table = res1[7]
+				  fkDetails.FK_Related_Table = strings.TrimSpace(fkDetails.FK_Related_Table[1:len(fkDetails.FK_Related_Table)-2])
+				  fkDetails.FK_Related_Table_Column = res1[8]
+				  fkDetails.FK_Related_Table_Column = strings.TrimSpace(fkDetails.FK_Related_Table_Column[2:len(fkDetails.FK_Related_Table_Column)-4])
+				}
+				tableX[i].ForeignKeys = append(tableX[i].ForeignKeys, fkDetails)
+			}			
+			
+		}
 	  }
 	  if len(res1) == 1 {
 		if res1[0] == ");" {
@@ -139,6 +163,9 @@ func ReadSchema(filePath string)  []Table_Struct {
 		for k:=0; k<len(tableX[i].IndexDetails[j].IndexColumn); k++{
 		  fmt.Println("    index column name: ", tableX[i].IndexDetails[j].IndexColumn[k])
 		}
+	  }
+	  for j:=0; j<len(tableX[i].ForeignKeys); j++{
+		fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_Table: ", tableX[i].ForeignKeys[j].FK_Related_Table, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
 	  }
 	}
   return tableX
