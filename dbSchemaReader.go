@@ -11,30 +11,36 @@ import (
 
 type Table_Struct struct {
 	Table_name          string
-	Table_Columns       []TableColumns
-	IndexDetails        []Index_Name_Details
-	ForeignKeys			[]ForeignKey_Details
+	Table_Columns       []table_columns
+	IndexDetails        []index_name_details
+	ForeignKeys			[]foreign_key_details
 	OutputFileName      string
 	FunctionSignature   string
 	FunctionSignature2  string
+	FunctionSignature3  string
+
   }
   
-  type Index_Name_Details struct {
+  type index_name_details struct {
 	IndexName       string
 	IndexColumn     []string
   }
   
-  type ForeignKey_Details struct {
-	FK_Column       			string
-	FK_Related_Table			string
-	FK_Related_Table_Column		string
+  type foreign_key_details struct {
+	FK_Column       						string
+	FK_Related_TableName					string
+	FK_Related_SingularTableName			string
+	FK_Related_TableName_Singular_Object	string
+	FK_Related_TableName_Plural_Object		string
+	FK_Related_Table_Column					string
   }
 
   
-  type TableColumns struct {
+  type table_columns struct {
 	Column_name     string
 	PrimaryFlag     bool
 	UniqueFlag      bool
+	ForeignFlag		bool
 	ColumnType      string
 	ColumnNameParams string
   }
@@ -43,7 +49,7 @@ func ReadSchema(filePath string)  []Table_Struct {
 
 	var tableX []Table_Struct
 	var table Table_Struct
-	var tabColumns TableColumns
+	var tabColumns table_columns
 	readFile, err := os.Open(filePath)
 	if err != nil {
 	  fmt.Println(err)
@@ -75,6 +81,7 @@ func ReadSchema(filePath string)  []Table_Struct {
 		if res1[0] == "" && res1[1] == "" && strings.TrimSpace(res1[2][0:1]) == `"` {
 		  tabColumns.Column_name = strings.TrimSpace(res1[2][1:len(res1[2])-1])
 		  tabColumns.ColumnType = strings.TrimSpace(res1[3][0:])
+		  tabColumns.ForeignFlag = false
 		  ///////////////////
 		  column_name_slice := strings.Split(tabColumns.Column_name,"_")
 		  // fmt.Println(column_name_slice)
@@ -108,7 +115,7 @@ func ReadSchema(filePath string)  []Table_Struct {
 		if res1[0] == "CREATE" && res1[1] == "INDEX" {
 		  for i:=0; i<len(tableX); i++{
 			if tableX[i].Table_name == strings.TrimSpace(res1[3][1:len(res1[3])-1]) { 
-			  var index Index_Name_Details
+			  var index index_name_details
 			  index.IndexName = strings.TrimSpace(res1[3][1:len(res1[3])-1]) + strconv.Itoa(rand.Intn(90000))
 			  for m :=4; m<len(res1); m++ {            
 				indexColumnName := res1[m]
@@ -130,24 +137,41 @@ func ReadSchema(filePath string)  []Table_Struct {
 		  }
 		}
 		if res1[0] == "ALTER" && res1[4] == "FOREIGN" {
-			fmt.Println("I have found ALTER FOREIGN key line")
 			for i:=0; i<len(tableX); i++{
-				fmt.Println(tableX[i].Table_name, strings.TrimSpace(res1[2][1:len(res1[3])-1]))
-				var fkDetails ForeignKey_Details
-				if tableX[i].Table_name == strings.TrimSpace(res1[2][1:len(res1[3])-1]) { 
-				  //var index Index_Name_Details
-				  //index.IndexName = strings.TrimSpace(res1[3][1:len(res1[3])-1]) + strconv.Itoa(rand.Intn(90000))
-				  fkDetails.FK_Column = res1[5]
-				  fkDetails.FK_Column = strings.TrimSpace(fkDetails.FK_Column[2:len(fkDetails.FK_Column)-2])
-				  fkDetails.FK_Related_Table = res1[7]
-				  fkDetails.FK_Related_Table = strings.TrimSpace(fkDetails.FK_Related_Table[1:len(fkDetails.FK_Related_Table)-2])
-				  fkDetails.FK_Related_Table_Column = res1[8]
-				  fkDetails.FK_Related_Table_Column = strings.TrimSpace(fkDetails.FK_Related_Table_Column[2:len(fkDetails.FK_Related_Table_Column)-4])
+				var fkDetails foreign_key_details
+				if tableX[i].Table_name == strings.TrimSpace(res1[2][1:len(res1[2])-1]) { 
+					fkDetails.FK_Column = res1[6]
+					fkDetails.FK_Column = strings.TrimSpace(fkDetails.FK_Column[2:len(fkDetails.FK_Column)-2])
+					fkDetails.FK_Related_TableName = res1[8]
+					fkDetails.FK_Related_TableName = strings.TrimSpace(fkDetails.FK_Related_TableName[1:len(fkDetails.FK_Related_TableName)-1])
+
+
+					if strings.TrimSpace(fkDetails.FK_Related_TableName[len(fkDetails.FK_Related_TableName)-3:]) == `ies` {
+						fkDetails.FK_Related_SingularTableName = strings.TrimSpace(fkDetails.FK_Related_TableName[:len(fkDetails.FK_Related_TableName)-3])+"y"
+					  }else if strings.TrimSpace(fkDetails.FK_Related_TableName[len(fkDetails.FK_Related_TableName)-1:]) == `s` {
+						fkDetails.FK_Related_SingularTableName = strings.TrimSpace(fkDetails.FK_Related_TableName[:len(fkDetails.FK_Related_TableName)-1])
+					  }else {
+						fkDetails.FK_Related_SingularTableName = fkDetails.FK_Related_TableName
+					}
+
+					if strings.TrimSpace(fkDetails.FK_Related_TableName[len(fkDetails.FK_Related_TableName)-3:]) == `ies` {
+						fkDetails.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(fkDetails.FK_Related_TableName[0:1]))+strings.TrimSpace(fkDetails.FK_Related_TableName[1:len(fkDetails.FK_Related_TableName)-3]+"y")
+					} else if strings.TrimSpace(fkDetails.FK_Related_TableName[len(fkDetails.FK_Related_TableName)-1:]) == `s` {
+						fkDetails.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(fkDetails.FK_Related_TableName[0:1]))+strings.TrimSpace(fkDetails.FK_Related_TableName[1:len(fkDetails.FK_Related_TableName)-1])
+					} else {
+						fkDetails.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(fkDetails.FK_Related_TableName[0:1]))+strings.TrimSpace(fkDetails.FK_Related_TableName[1:])
+					}						
+					fkDetails.FK_Related_TableName_Plural_Object = strings.ToUpper(strings.TrimSpace(fkDetails.FK_Related_TableName[0:1]))+strings.TrimSpace(fkDetails.FK_Related_TableName[1:])
+
+
+					fkDetails.FK_Related_Table_Column = res1[9]
+					fkDetails.FK_Related_Table_Column = strings.TrimSpace(fkDetails.FK_Related_Table_Column[2:len(fkDetails.FK_Related_Table_Column)-3])
+					tableX[i].ForeignKeys = append(tableX[i].ForeignKeys, fkDetails)
+					for j:=0; j<len(tableX[i].Table_Columns); j++ {
+						if tableX[i].Table_Columns[j].Column_name == fkDetails.FK_Column { tableX[i].Table_Columns[j].ForeignFlag = true}
+					}
 				}
-				tableX[i].ForeignKeys = append(tableX[i].ForeignKeys, fkDetails)
-				fmt.Println(fkDetails.FK_Column, fkDetails.FK_Related_Table, fkDetails.FK_Related_Table_Column)
-			}			
-			
+			}						
 		}
 	  }
 	  if len(res1) == 1 {
@@ -159,7 +183,7 @@ func ReadSchema(filePath string)  []Table_Struct {
 	for i:=0; i<len(tableX); i++{
 	//   fmt.Println("table Name: ", tableX[i].Table_name, "OutputFileName: ", tableX[i].OutputFileName,  "FunctionSignature: ", tableX[i].FunctionSignature, "FunctionSignature2: ", tableX[i].FunctionSignature2)
 	  for j:=0; j<len(tableX[i].Table_Columns); j++{
-		// fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, tableX[i].Table_Columns[j].ColumnType, tableX[i].Table_Columns[j].PrimaryFlag, tableX[i].Table_Columns[j].UniqueFlag, tableX[i].Table_Columns[j].ColumnNameParams)
+		// fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, "Type: " , tableX[i].Table_Columns[j].ColumnType, "PrimaryKeyFlag: ", tableX[i].Table_Columns[j].PrimaryFlag, "UniqueKeyFlag: ", tableX[i].Table_Columns[j].UniqueFlag, "ForeignKeyFlag: ", tableX[i].Table_Columns[j].ForeignFlag, "ColumnNameForParams: ", tableX[i].Table_Columns[j].ColumnNameParams)
 	  }
 	  for j:=0; j<len(tableX[i].IndexDetails); j++{
 		// fmt.Println("    index name: ", tableX[i].IndexDetails[j].IndexName)
@@ -168,7 +192,7 @@ func ReadSchema(filePath string)  []Table_Struct {
 		}
 	  }
 	  for j:=0; j<len(tableX[i].ForeignKeys); j++{
-		// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_Table: ", tableX[i].ForeignKeys[j].FK_Related_Table, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
+		// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
 	  }
 	}
   return tableX
