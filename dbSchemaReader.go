@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+
 )
 
 type Table_Struct struct {
@@ -21,32 +23,48 @@ type Table_Struct struct {
 
   }
   
-  type index_name_details struct {
+type index_name_details struct {
 	IndexName       string
 	IndexColumn     []string
-  }
+}
   
-  type foreign_key_details struct {
+type foreign_key_details struct {
 	FK_Column       						string
 	FK_Related_TableName					string
 	FK_Related_SingularTableName			string
 	FK_Related_TableName_Singular_Object	string
 	FK_Related_TableName_Plural_Object		string
 	FK_Related_Table_Column					string
-  }
+}
 
   
-  type table_columns struct {
+type table_columns struct {
 	Column_name     string
 	PrimaryFlag     bool
 	UniqueFlag      bool
 	ForeignFlag		bool
 	ColumnType      string
 	ColumnNameParams string
-  }
-  
-func ReadSchema(filePath string)  []Table_Struct {
+}
 
+type FK_Hierarchy struct{
+	TableName				string
+	RelatedTablesLevels		[]RelatedTables
+}
+
+type RelatedTables struct {
+	RelatedTableList	[]RelatedTable
+}
+
+type RelatedTable struct {
+	FK_Related_TableName					string
+	FK_Related_SingularTableName			string
+	FK_Related_Table_Column					string
+	FK_Related_TableName_Plural_Object		string
+	FK_Related_TableName_Singular_Object	string
+}
+
+func ReadSchema(filePath string)  ([]Table_Struct, []FK_Hierarchy) {
 	var tableX []Table_Struct
 	var table Table_Struct
 	var tabColumns table_columns
@@ -181,19 +199,87 @@ func ReadSchema(filePath string)  []Table_Struct {
 	  }
 	}
 	for i:=0; i<len(tableX); i++{
-	//   fmt.Println("table Name: ", tableX[i].Table_name, "OutputFileName: ", tableX[i].OutputFileName,  "FunctionSignature: ", tableX[i].FunctionSignature, "FunctionSignature2: ", tableX[i].FunctionSignature2)
-	  for j:=0; j<len(tableX[i].Table_Columns); j++{
-		// fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, "Type: " , tableX[i].Table_Columns[j].ColumnType, "PrimaryKeyFlag: ", tableX[i].Table_Columns[j].PrimaryFlag, "UniqueKeyFlag: ", tableX[i].Table_Columns[j].UniqueFlag, "ForeignKeyFlag: ", tableX[i].Table_Columns[j].ForeignFlag, "ColumnNameForParams: ", tableX[i].Table_Columns[j].ColumnNameParams)
-	  }
-	  for j:=0; j<len(tableX[i].IndexDetails); j++{
-		// fmt.Println("    index name: ", tableX[i].IndexDetails[j].IndexName)
-		for k:=0; k<len(tableX[i].IndexDetails[j].IndexColumn); k++{
-		//   fmt.Println("    index column name: ", tableX[i].IndexDetails[j].IndexColumn[k])
+		//   fmt.Println("table Name: ", tableX[i].Table_name, "OutputFileName: ", tableX[i].OutputFileName,  "FunctionSignature: ", tableX[i].FunctionSignature, "FunctionSignature2: ", tableX[i].FunctionSignature2)
+		for j:=0; j<len(tableX[i].Table_Columns); j++{
+			// fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, "Type: " , tableX[i].Table_Columns[j].ColumnType, "PrimaryKeyFlag: ", tableX[i].Table_Columns[j].PrimaryFlag, "UniqueKeyFlag: ", tableX[i].Table_Columns[j].UniqueFlag, "ForeignKeyFlag: ", tableX[i].Table_Columns[j].ForeignFlag, "ColumnNameForParams: ", tableX[i].Table_Columns[j].ColumnNameParams)
 		}
-	  }
-	  for j:=0; j<len(tableX[i].ForeignKeys); j++{
-		// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
-	  }
+		for j:=0; j<len(tableX[i].IndexDetails); j++{
+			// fmt.Println("    index name: ", tableX[i].IndexDetails[j].IndexName)
+			for k:=0; k<len(tableX[i].IndexDetails[j].IndexColumn); k++{
+			//   fmt.Println("    index column name: ", tableX[i].IndexDetails[j].IndexColumn[k])
+			}
+		}
+		for j:=0; j<len(tableX[i].ForeignKeys); j++{
+			// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
+		}
+
 	}
-  return tableX
+	//////////////////////////////////////////////
+	var relatedTable RelatedTable
+	var relatedTables RelatedTables
+	var fk_Hierarchy FK_Hierarchy
+	var fk_HierarchyX []FK_Hierarchy
+
+	for i:=0; i<len(tableX); i++{
+		relatedTables.RelatedTableList = nil
+		fk_Hierarchy.RelatedTablesLevels = nil
+		if len(tableX[i].ForeignKeys) > 0 {
+			for j :=0; j < len(tableX[i].ForeignKeys); j++{
+				relatedTable.FK_Related_TableName = tableX[i].ForeignKeys[j].FK_Related_TableName
+				relatedTable.FK_Related_SingularTableName = tableX[i].ForeignKeys[j].FK_Related_SingularTableName
+				relatedTable.FK_Related_Table_Column = tableX[i].ForeignKeys[j].FK_Related_Table_Column
+				relatedTable.FK_Related_TableName_Singular_Object = tableX[i].ForeignKeys[j].FK_Related_TableName_Singular_Object
+				relatedTable.FK_Related_TableName_Plural_Object = tableX[i].ForeignKeys[j].FK_Related_TableName_Plural_Object
+				// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTable: ",relatedTable)
+				relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
+				// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTables: ",relatedTables)
+			}
+			fk_Hierarchy.TableName = tableX[i].Table_name
+			fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
+			fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
+		}else{
+			fk_Hierarchy.TableName = tableX[i].Table_name
+			// fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
+			fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
+		}
+		fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"fk_Hierarchy.RelatedTablesLevels: ",fk_Hierarchy.RelatedTablesLevels, "fk_Hierarchy: ",fk_Hierarchy)
+		var c int
+		var d int
+		var e int
+		c = 0
+		for k :=0; k < len(fk_HierarchyX); k++{
+			d = len(fk_HierarchyX[k].RelatedTablesLevels)
+			e = d - c
+			if fk_HierarchyX[k].TableName == tableX[i].Table_name {
+				for l :=len(fk_HierarchyX[k].RelatedTablesLevels)-e; l < len(fk_HierarchyX[k].RelatedTablesLevels); l++{
+					for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++{
+						for z :=0; z < len(tableX); z++{
+							if fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName == tableX[z].Table_name {	
+								if len(tableX[z].ForeignKeys) > 0 {
+									relatedTables.RelatedTableList = nil
+									for y :=0; y < len(tableX[z].ForeignKeys); y++{
+										relatedTable.FK_Related_TableName = tableX[z].ForeignKeys[y].FK_Related_TableName
+										relatedTable.FK_Related_SingularTableName = tableX[z].ForeignKeys[y].FK_Related_SingularTableName
+										relatedTable.FK_Related_Table_Column = tableX[z].ForeignKeys[y].FK_Related_Table_Column
+										relatedTable.FK_Related_TableName_Singular_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Singular_Object
+										relatedTable.FK_Related_TableName_Plural_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Plural_Object									
+										relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)							
+									}
+									fk_HierarchyX[k].RelatedTablesLevels = append(fk_HierarchyX[k].RelatedTablesLevels, relatedTables)
+								}
+							}
+						}
+					}			
+				}
+				c = d
+			}
+		}				
+	}
+	return tableX, fk_HierarchyX
 }
+
+	//}
+	// for q := 0; q < len(fk_HierarchyX); q++ {
+	// 	fmt.Println("fk_HierarchyX[q]: ",fk_HierarchyX[q])
+	// }
+	//////////////////////////////////////////////
