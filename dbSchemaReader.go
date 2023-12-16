@@ -219,7 +219,6 @@ func ReadSchema(filePath string)  ([]Table_Struct, []FK_Hierarchy) {
 	var relatedTables RelatedTables
 	var fk_Hierarchy FK_Hierarchy
 	var fk_HierarchyX []FK_Hierarchy
-
 	for i:=0; i<len(tableX); i++{
 		relatedTables.RelatedTableList = nil
 		fk_Hierarchy.RelatedTablesLevels = nil
@@ -277,9 +276,3 @@ func ReadSchema(filePath string)  ([]Table_Struct, []FK_Hierarchy) {
 	}
 	return tableX, fk_HierarchyX
 }
-
-	//}
-	// for q := 0; q < len(fk_HierarchyX); q++ {
-	// 	fmt.Println("fk_HierarchyX[q]: ",fk_HierarchyX[q])
-	// }
-	//////////////////////////////////////////////
