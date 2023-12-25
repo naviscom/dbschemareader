@@ -231,7 +231,7 @@ func ReadSchema(filePath string)  ([]Table_Struct, []FK_Hierarchy) {
 				relatedTable.FK_Related_TableName_Plural_Object = tableX[i].ForeignKeys[j].FK_Related_TableName_Plural_Object
 				// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTable: ",relatedTable)
 				relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
-				// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTables: ",relatedTables)
+				//  fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTables: ",relatedTables)
 			}
 			fk_Hierarchy.TableName = tableX[i].Table_name
 			fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
@@ -241,7 +241,7 @@ func ReadSchema(filePath string)  ([]Table_Struct, []FK_Hierarchy) {
 			// fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
 			fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
 		}
-		fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"fk_Hierarchy.RelatedTablesLevels: ",fk_Hierarchy.RelatedTablesLevels, "fk_Hierarchy: ",fk_Hierarchy)
+		// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"fk_Hierarchy.RelatedTablesLevels: ",fk_Hierarchy.RelatedTablesLevels, "fk_Hierarchy: ",fk_Hierarchy)
 		var c int
 		var d int
 		var e int
