@@ -1,4 +1,4 @@
-package dbSchemaReader
+package dbschemareader
 
 import (
 	"bufio"

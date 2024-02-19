@@ -1,3 +1,3 @@
-module github.com/naviscom/dbSchemaReader
+module github.com/naviscom/dbschemareader
 
-go 1.21.3
+go 1.21.5
