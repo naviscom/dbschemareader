@@ -20,8 +20,7 @@ type Table_Struct struct {
 	FunctionSignature   string
 	FunctionSignature2  string
 	FunctionSignature3  string
-
-  }
+}
   
 type index_name_details struct {
 	IndexName       string
@@ -37,7 +36,6 @@ type foreign_key_details struct {
 	FK_Related_Table_Column					string
 }
 
-  
 type table_columns struct {
 	Column_name     string
 	PrimaryFlag     bool
