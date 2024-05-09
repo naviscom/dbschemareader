@@ -299,26 +299,26 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 		var d int
 		var e int
 		c = 0
-		fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
+		// fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
 		for k :=0; k < len(fk_HierarchyX); k++{
 			d = len(fk_HierarchyX[k].RelatedTablesLevels) //3
 			e = d - c //3
 			if fk_HierarchyX[k].TableName == tableX[i].Table_name {
-				fmt.Println("	k: ",k,"	fk_HierarchyX[k].TableName: ",fk_HierarchyX[k].TableName)
+				// fmt.Println("	k: ",k,"	fk_HierarchyX[k].TableName: ",fk_HierarchyX[k].TableName)
 				for l :=len(fk_HierarchyX[k].RelatedTablesLevels)-e; l < len(fk_HierarchyX[k].RelatedTablesLevels); l++{
 					if l == 0 {
 						fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName = fk_HierarchyX[k].TableName
 					}
-					fmt.Println("		l: ",l,"	fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName)
+					// fmt.Println("		l: ",l,"	fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName)
 					for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++{ //carrier, serviceareatype, site
-						fmt.Println("			m: ",m,"	fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
+						// fmt.Println("			m: ",m,"	fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
 						for z :=0; z < len(tableX); z++{
 							if tableX[z].Table_name == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName {	
 								if len(tableX[z].ForeignKeys) > 0 {
 									relatedTables.RelatedTableList = nil
 									relatedTables.Hierarchy_TableName = ""
 									for y :=0; y < len(tableX[z].ForeignKeys); y++{
-										fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y].FK_Related_TableName: ", tableX[z].ForeignKeys[y].FK_Related_TableName)
+										// fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y].FK_Related_TableName: ", tableX[z].ForeignKeys[y].FK_Related_TableName)
 										relatedTable.FK_Related_TableName = tableX[z].ForeignKeys[y].FK_Related_TableName
 										relatedTable.FK_Related_SingularTableName = tableX[z].ForeignKeys[y].FK_Related_SingularTableName
 										relatedTable.FK_Related_Table_Column = tableX[z].ForeignKeys[y].FK_Related_Table_Column
