@@ -21,7 +21,16 @@ type Table_Struct struct {
 	FunctionSignature2  string
 	FunctionSignature3  string
 }
-  
+
+type table_columns struct {
+	Column_name     string
+	PrimaryFlag     bool
+	UniqueFlag      bool
+	ForeignFlag		bool
+	ColumnType      string
+	ColumnNameParams string
+}
+
 type index_name_details struct {
 	IndexName       string
 	IndexColumn     []string
@@ -36,28 +45,20 @@ type foreign_key_details struct {
 	FK_Related_Table_Column					string
 }
 
-type table_columns struct {
-	Column_name     string
-	PrimaryFlag     bool
-	UniqueFlag      bool
-	ForeignFlag		bool
-	ColumnType      string
-	ColumnNameParams string
-}
-
 type FK_Hierarchy struct{
 	TableName				string
 	RelatedTablesLevels		[]RelatedTables
 }
 
 type RelatedTables struct {
+	Hierarchy_TableName	string
 	RelatedTableList	[]RelatedTable
 }
 
 type RelatedTable struct {
 	FK_Related_TableName					string
-	FK_Related_SingularTableName			string
 	FK_Related_Table_Column					string
+	FK_Related_SingularTableName			string
 	FK_Related_TableName_Plural_Object		string
 	FK_Related_TableName_Singular_Object	string
 }
@@ -281,6 +282,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 				relatedTable.FK_Related_TableName_Singular_Object = tableX[i].ForeignKeys[j].FK_Related_TableName_Singular_Object
 				relatedTable.FK_Related_TableName_Plural_Object = tableX[i].ForeignKeys[j].FK_Related_TableName_Plural_Object
 				// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTable: ",relatedTable)
+				
 				relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
 				//  fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name,"relatedTables: ",relatedTables)
 			}
@@ -297,25 +299,36 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 		var d int
 		var e int
 		c = 0
+		fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
 		for k :=0; k < len(fk_HierarchyX); k++{
-			d = len(fk_HierarchyX[k].RelatedTablesLevels)
-			e = d - c
+			d = len(fk_HierarchyX[k].RelatedTablesLevels) //3
+			e = d - c //3
 			if fk_HierarchyX[k].TableName == tableX[i].Table_name {
+				fmt.Println("	k: ",k,"	fk_HierarchyX[k].TableName: ",fk_HierarchyX[k].TableName)
 				for l :=len(fk_HierarchyX[k].RelatedTablesLevels)-e; l < len(fk_HierarchyX[k].RelatedTablesLevels); l++{
-					for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++{
+					if l == 0 {
+						fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName = fk_HierarchyX[k].TableName
+					}
+					fmt.Println("		l: ",l,"	fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName)
+					for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++{ //carrier, serviceareatype, site
+						fmt.Println("			m: ",m,"	fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
 						for z :=0; z < len(tableX); z++{
-							if fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName == tableX[z].Table_name {	
+							if tableX[z].Table_name == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName {	
 								if len(tableX[z].ForeignKeys) > 0 {
 									relatedTables.RelatedTableList = nil
+									relatedTables.Hierarchy_TableName = ""
 									for y :=0; y < len(tableX[z].ForeignKeys); y++{
+										fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y].FK_Related_TableName: ", tableX[z].ForeignKeys[y].FK_Related_TableName)
 										relatedTable.FK_Related_TableName = tableX[z].ForeignKeys[y].FK_Related_TableName
 										relatedTable.FK_Related_SingularTableName = tableX[z].ForeignKeys[y].FK_Related_SingularTableName
 										relatedTable.FK_Related_Table_Column = tableX[z].ForeignKeys[y].FK_Related_Table_Column
 										relatedTable.FK_Related_TableName_Singular_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Singular_Object
-										relatedTable.FK_Related_TableName_Plural_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Plural_Object									
-										relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)							
+										relatedTable.FK_Related_TableName_Plural_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Plural_Object	
+										
+										relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)	
 									}
 									fk_HierarchyX[k].RelatedTablesLevels = append(fk_HierarchyX[k].RelatedTablesLevels, relatedTables)
+									fk_HierarchyX[k].RelatedTablesLevels[len(fk_HierarchyX[k].RelatedTablesLevels)-1].Hierarchy_TableName = fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName
 								}
 							}
 						}
