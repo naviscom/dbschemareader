@@ -111,10 +111,9 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 				// fmt.Println(column_name_slice)
 				for k := 0; k < len(column_name_slice); k++ {
 					if column_name_slice[k] == "id" {
-					column_name_slice[k] = strings.ToUpper(strings.TrimSpace(column_name_slice[k]))
+						column_name_slice[k] = strings.ToUpper(strings.TrimSpace(column_name_slice[k]))
 					}else{
-					column_name_slice[k] = strings.ToUpper(strings.TrimSpace(column_name_slice[k][0:1]))+strings.TrimSpace(column_name_slice[k][1:])
-			
+						column_name_slice[k] = strings.ToUpper(strings.TrimSpace(column_name_slice[k][0:1]))+strings.TrimSpace(column_name_slice[k][1:])
 					}
 				}
 				tabColumns.ColumnNameParams = strings.Join(column_name_slice,"")
