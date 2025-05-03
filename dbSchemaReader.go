@@ -45,7 +45,9 @@ type foreign_key_details struct {
 	FK_Related_Table_Column					string
 }
 
-type FK_Hierarchy struct{
+///////////////////////////////////////////////////
+
+type FK_Hierarchy struct {
 	TableName				string
 	RelatedTablesLevels		[]RelatedTables
 }
@@ -64,7 +66,7 @@ type RelatedTable struct {
 }
 
 func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_Hierarchy) {
-	// fmt.Println(filePath, tableX)
+	// fmt.Println("filePath: ",filePath, "tableX: ",tableX)
 	// var tableX []Table_Struct
 	var table Table_Struct
 	var tabColumns table_columns
@@ -93,9 +95,9 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 				}
 				if strings.TrimSpace(table.Table_name[len(table.Table_name)-3:]) == `ies` {
 					table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:len(table.Table_name)-3]+"y")
-					} else if strings.TrimSpace(table.Table_name[len(table.Table_name)-1:]) == `s` {
+				} else if strings.TrimSpace(table.Table_name[len(table.Table_name)-1:]) == `s` {
 					table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:len(table.Table_name)-1])
-					} else {
+				} else {
 					table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:])
 				}
 				table.Table_Columns = nil
@@ -252,16 +254,16 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 	for i:=0; i<len(tableX); i++{
 		// fmt.Println("table Name: ", tableX[i].Table_name, "OutputFileName: ", tableX[i].OutputFileName,  "FunctionSignature: ", tableX[i].FunctionSignature, "FunctionSignature2: ", tableX[i].FunctionSignature2)
 		for j:=0; j<len(tableX[i].Table_Columns); j++{
-			// fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, "Type: " , tableX[i].Table_Columns[j].ColumnType, "PrimaryKeyFlag: ", tableX[i].Table_Columns[j].PrimaryFlag, "UniqueKeyFlag: ", tableX[i].Table_Columns[j].UniqueFlag, "ForeignKeyFlag: ", tableX[i].Table_Columns[j].ForeignFlag, "ColumnNameForParams: ", tableX[i].Table_Columns[j].ColumnNameParams)
+			fmt.Println("    column name: ", tableX[i].Table_Columns[j].Column_name, "Type: " , tableX[i].Table_Columns[j].ColumnType, "PrimaryKeyFlag: ", tableX[i].Table_Columns[j].PrimaryFlag, "UniqueKeyFlag: ", tableX[i].Table_Columns[j].UniqueFlag, "ForeignKeyFlag: ", tableX[i].Table_Columns[j].ForeignFlag, "ColumnNameForParams: ", tableX[i].Table_Columns[j].ColumnNameParams)
 		}
 		for j:=0; j<len(tableX[i].IndexDetails); j++{
-			// fmt.Println("    index name: ", tableX[i].IndexDetails[j].IndexName)
+			fmt.Println("    index name: ", tableX[i].IndexDetails[j].IndexName)
 			for k:=0; k<len(tableX[i].IndexDetails[j].IndexColumn); k++{
 				// fmt.Println("    index column name: ", tableX[i].IndexDetails[j].IndexColumn[k])
 			}
 		}
 		for j:=0; j<len(tableX[i].ForeignKeys); j++{
-			// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
+			fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
 		}
 
 	}
@@ -298,26 +300,26 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 		var d int
 		var e int
 		c = 0
-		// fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
+		fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
 		for k :=0; k < len(fk_HierarchyX); k++{
 			d = len(fk_HierarchyX[k].RelatedTablesLevels) //3
 			e = d - c //3
 			if fk_HierarchyX[k].TableName == tableX[i].Table_name {
-				// fmt.Println("	k: ",k,"	fk_HierarchyX[k].TableName: ",fk_HierarchyX[k].TableName)
+				fmt.Println("	k: ",k,"	fk_HierarchyX[k].TableName: ",fk_HierarchyX[k].TableName)
 				for l :=len(fk_HierarchyX[k].RelatedTablesLevels)-e; l < len(fk_HierarchyX[k].RelatedTablesLevels); l++{
 					if l == 0 {
 						fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName = fk_HierarchyX[k].TableName
 					}
-					// fmt.Println("		l: ",l,"	fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName)
+					fmt.Println("		l: ",l,"	fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName)
 					for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++{ //carrier, serviceareatype, site
-						// fmt.Println("			m: ",m,"	fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
+						fmt.Println("			m: ",m,"	fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ",fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
 						for z :=0; z < len(tableX); z++{
 							if tableX[z].Table_name == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName {	
 								if len(tableX[z].ForeignKeys) > 0 {
 									relatedTables.RelatedTableList = nil
 									relatedTables.Hierarchy_TableName = ""
 									for y :=0; y < len(tableX[z].ForeignKeys); y++{
-										// fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y].FK_Related_TableName: ", tableX[z].ForeignKeys[y].FK_Related_TableName)
+										fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y].FK_Related_TableName: ", tableX[z].ForeignKeys[y].FK_Related_TableName)
 										relatedTable.FK_Related_TableName = tableX[z].ForeignKeys[y].FK_Related_TableName
 										relatedTable.FK_Related_SingularTableName = tableX[z].ForeignKeys[y].FK_Related_SingularTableName
 										relatedTable.FK_Related_Table_Column = tableX[z].ForeignKeys[y].FK_Related_Table_Column
