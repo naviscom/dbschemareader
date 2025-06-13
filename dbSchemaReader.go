@@ -1,5 +1,5 @@
 package dbschemareader
-// package main
+//package main
 
 import (
 	"bufio"
@@ -9,11 +9,35 @@ import (
 	"strconv"
 	"strings"
 	// "time"
+
 )
+type SessionTableSpecs struct {
+	TableName				string
+	TokenColumnName 		string
+	CreateTimingColumnName	string
+	ExpiryTimingColumnName	string
+	StatusColumnName		string
+	AgentColumnName			string
+	DeviceColumnName		string
+	LocationColumnName		string
+	SecurityColumnName		string
+	FkUserColumn			string
+	RefUserTableName		string
+	RefUserTableColumn		string
+}
+
+type UserTableSpecs struct {
+	TableName				string
+	AuthColumnName			string
+	DateColumnName			string
+	StatusColumnName		string
+	LoginNameColumnName		string
+	SecurityColumnName		string
+}
 
 type Table_Struct struct {
 	Table_name          			string
-	Table_Columns       			[]table_columns
+	Table_Columns       			[]Table_columns
 	IndexDetails        			[]index_name_details
 	CompositeForeignKeys			[]CompositeForeignKeysAndReferences
 	CompositeUniqueConstraints		[]CompositeUniqueConstraint
@@ -24,6 +48,10 @@ type Table_Struct struct {
 	FunctionSignature   			string
 	FunctionSignature2  			string
 	FunctionSignature3  			string
+	IsSessionsTable					bool
+	IsUserTable						bool
+	SessionTableSpecs				SessionTableSpecs
+	UserTableSpecs					UserTableSpecs
 }
 
 type CompositeForeignKeysAndReferences struct {
@@ -43,9 +71,10 @@ type CheckConstraint struct {
 	CheckConstraintName			string
 	CheckConstraintValue		string
 	CheckConstraintTableName	string
+	CheckConstraintColumnName	string
 }
 
-type table_columns struct {
+type Table_columns struct {
 	Column_name     string
 	ColumnType      string
 	PrimaryFlag     bool
@@ -91,6 +120,32 @@ type RelatedTable struct {
 	FK_Related_SingularTableName			string
 	FK_Related_TableName_Plural_Object		string
 	FK_Related_TableName_Singular_Object	string
+}
+// Alternative simpler approach if you prefer not to use regex
+func extractColumnNameSimple(constraintExpr string) string {
+	expr := strings.TrimSpace(constraintExpr)
+	
+	// Find the first operator (ordered by length to avoid substring issues)
+	operators := []string{">=", "<=", "<>", "!=", ">", "<", "="}
+	
+	minIndex := len(expr)
+	foundOperator := ""
+	
+	// Find the earliest occurring operator
+	for _, op := range operators {
+		if idx := strings.Index(expr, op); idx != -1 && idx < minIndex {
+			minIndex = idx
+			foundOperator = op
+		}
+	}
+	
+	if foundOperator != "" {
+		columnName := strings.TrimSpace(expr[:minIndex])
+		columnName = strings.TrimSpace(columnName)
+		return columnName
+	}
+	
+	return strings.TrimSpace(expr)
 }
 
 func extractColumnNamesWithParenthesis(line []string, columnIndex int) string {
@@ -180,10 +235,10 @@ func columnNameCleanUp(columnName string) string {
 }
 
 func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_Hierarchy) {
-	fmt.Println("filePath: ",filePath, "tableX: ",tableX)
+//func ReadSchema(filePath string, tableX []sqlcq_test.Table_Struct)  ([]sqlcq_test.Table_Struct, []FK_Hierarchy) {
+	// fmt.Println("filePath: ",filePath, "tableX: ",tableX)
 	// var tableX []Table_Struct
 	var table Table_Struct
-	var tabColumns table_columns
 	// fmt.Println(filePath)
 	readFile, err := os.Open(filePath)
 	if err != nil {
@@ -198,6 +253,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			if res1[0] == "CREATE" && res1[1] == "TABLE" {
 				// fmt.Println(`Inside "CREATE" && res1[1] == "TABLE"`)
 				// fmt.Println(res1[2], strings.TrimSpace(res1[2][1:len(res1[2])-1]))
+				//fmt.Println("table.Table_name: ", table.Table_name)
 				table.Table_name = strings.TrimSpace(res1[2][1:len(res1[2])-1])
 				table.FunctionSignature2 = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:])
 				// fmt.Println("table.Table_name: ", table.Table_name, "table.FunctionSignature2: ", table.FunctionSignature2)
@@ -214,21 +270,17 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:])
 					// fmt.Println("3-table.OutputFileName: ", table.OutputFileName, "table.FunctionSignature: ", table.FunctionSignature)
 				}
-				// if strings.TrimSpace(table.Table_name[len(table.Table_name)-3:]) == `ies` {
-				// 	table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:len(table.Table_name)-3]+"y")
-				// } else if strings.TrimSpace(table.Table_name[len(table.Table_name)-1:]) == `s` {
-				// 	table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:len(table.Table_name)-1])
-				// } else {
-				// 	table.FunctionSignature = strings.ToUpper(strings.TrimSpace(table.Table_name[0:1]))+strings.TrimSpace(table.Table_name[1:])
-				// }
 				table.Table_Columns = nil
 			}
 			if res1[0] == "" && res1[1] == "" && strings.TrimSpace(res1[2][0:1]) == `"` {
+				var tabColumns Table_columns
+
 				// fmt.Println(`Inside """ && res1[1] == "" && strings.TrimSpace(res1[2][0:1]"`)
-				// fmt.Println(res1)
+				// fmt.Println("res1: ", res1)
 				tabColumns.Column_name = strings.TrimSpace(res1[2][1:len(res1[2])-1])
 				tabColumns.Column_name = strings.ReplaceAll(tabColumns.Column_name, "__", "_")
 				tabColumns.ColumnType = strings.TrimSpace(res1[3][0:])
+				tabColumns.ColumnType = strings.TrimSpace(strings.ReplaceAll(tabColumns.ColumnType, ",", ""))
 				tabColumns.ForeignFlag = false
 				// fmt.Println("tabColumns.Column_name: ", tabColumns.Column_name, "tabColumns.ColumnType: ", tabColumns.ColumnType, "tabColumns.ForeignFlag: ", tabColumns.ForeignFlag)
 				///////////////////
@@ -243,21 +295,51 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 				}
 				tabColumns.ColumnNameParams = strings.Join(column_name_slice,"")
 				// fmt.Println("tabColumns.ColumnNameParams: ", tabColumns.ColumnNameParams)
-				if len(res1) > 4 {
-					if res1[4] == `PRIMARY` {
-					tabColumns.PrimaryFlag = true
-					} else{
-					tabColumns.PrimaryFlag = false
+				var primaryWordIndex, uniqueWordIndex, notWordIndex, nullWordIndex, defaultWordIndex int
+				// fmt.Println("res1: ", res1)
+				for i, element := range res1 {
+					if element == "PRIMARY" {
+						primaryWordIndex = i
 					}
-					if res1[4] == `UNIQUE` {
-					tabColumns.UniqueFlag = true
-					} else{
-					tabColumns.UniqueFlag = false            
+					if element == "UNIQUE" || element == "UNIQUE," {
+						uniqueWordIndex = i
 					}
-				} else {
-					tabColumns.PrimaryFlag = false
-					tabColumns.UniqueFlag = false
+					if element == "NOT" {
+						notWordIndex = i
+					}
+					if element == "NULL" || element == "NULL," {
+						nullWordIndex = i
+					}
+					if element == "DEFAULT" {
+						defaultWordIndex = i
+					}
 				}
+				if primaryWordIndex > 0 {
+					tabColumns.PrimaryFlag = true
+					// fmt.Println("PrimaryFlag")
+				}else{ tabColumns.PrimaryFlag = false}
+
+				if uniqueWordIndex > 0 {
+					tabColumns.UniqueFlag = true
+					// fmt.Println("UniqueFlag")
+				}else{ tabColumns.UniqueFlag = false}
+
+				if defaultWordIndex > 0 {
+					// fmt.Println("DefaultValue", "-",strings.TrimSpace(res1[defaultWordIndex+1]), "-")
+					tabColumns.DefaultValue = strings.ReplaceAll(res1[defaultWordIndex+1], ",", "")
+					    if strings.HasPrefix(tabColumns.DefaultValue, "(") && strings.HasSuffix(tabColumns.DefaultValue, ")") {
+        					tabColumns.DefaultValue = strings.TrimPrefix(tabColumns.DefaultValue, "(")
+       						tabColumns.DefaultValue = strings.TrimSuffix(tabColumns.DefaultValue, ")")
+						}
+					// fmt.Println("DefaultValue", "-",tabColumns.DefaultValue, "-")
+				}
+
+				if notWordIndex > 0 && nullWordIndex > 0 {
+					tabColumns.Not_Null = true
+				}else{
+					tabColumns.Not_Null = false
+				}
+				//fmt.Println("tabColumns: ", tabColumns)
 				table.Table_Columns = append(table.Table_Columns, tabColumns)
 			}
 			if res1[0] == "CREATE" && res1[1] == "INDEX" {
@@ -266,12 +348,6 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					if element == "ON"{
 						onIndex = x
 					}
-					// if element == "INDEX"{
-					// 	indexIndex = x
-					// }
-					// if element == "USING"{
-					// 	usingIndex = x
-					// }
 				}
 					
 				// fmt.Println(`Inside "CREATE" && res1[1] == "INDEX"`)
@@ -287,23 +363,9 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 						// indexColumnName = strings.ReplaceAll(indexColumnName, " ", "")
 						// fmt.Println("indexColumnName: ", indexColumnName)
 						index.IndexColumn = append(index.IndexColumn,   indexColumnName)
-
-						// for m := 4; m < len(res1); m++ {            
-						// 	indexColumnName := res1[m]
-						// 	if strings.TrimSpace(indexColumnName[0:1]) == `(` {
-						// 		indexColumnName = strings.TrimSpace(indexColumnName[2:len(indexColumnName)-1])
-						// 	} else if strings.TrimSpace(indexColumnName[0:1]) == `"` {
-						// 		indexColumnName = strings.TrimSpace(indexColumnName[1:len(indexColumnName)-1])
-						// 	}
-						// 	if strings.TrimSpace(indexColumnName[len(indexColumnName)-1:]) == `)` {
-						// 		indexColumnName = strings.TrimSpace(indexColumnName[0:len(indexColumnName)-2])
-						// 	} else if strings.TrimSpace(indexColumnName[len(indexColumnName)-1:]) == `"` {
-						// 		indexColumnName = strings.TrimSpace(indexColumnName[0:len(indexColumnName)-1])
-						// 	}
-						// 	// fmt.Println(indexColumnName)
-						// 	index.IndexColumn = append(index.IndexColumn,   indexColumnName)
-						// }
 						tableX[i].IndexDetails = append(tableX[i].IndexDetails, index)
+						//index.IndexColumn = nil
+						//index.IndexName = ""
 					}
 				}
 			}
@@ -336,15 +398,6 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					if element == "CHECK" {
 						checkWordIndex = i
 					}
-					// if element == "DEFERRABLE" {
-					// 	//deferrableWordIndex = i
-					// }
-					// if element == "PRIMARY" {
-					// 	primaryWordIndex = i
-					// }
-					// if element == "ONLY" {
-					// 	onlyWordIndex = i
-					// }
 					if element == "UNIQUE" {
 						uniqueWordIndex = i
 					}
@@ -373,10 +426,15 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					var checkConstraint CheckConstraint
 					checkConstraint.CheckConstraintName = res1[constraintWordIndex+1]
 					checkConstraint.CheckConstraintTableName = tableX[indexOfTableX].Table_name
+					// fmt.Println("res1: ", res1,  "res1[checkWordIndex +1]: ", res1[checkWordIndex +1])
+					checkConstraint.CheckConstraintColumnName = strings.ReplaceAll(res1[checkWordIndex +1], "(", "")
+					// fmt.Println("checkConstraint.CheckConstraintColumnName: ", checkConstraint.CheckConstraintColumnName)
+					checkConstraint.CheckConstraintColumnName = extractColumnNameSimple(checkConstraint.CheckConstraintColumnName)
+					// fmt.Println("checkConstraint.CheckConstraintColumnName: ", checkConstraint.CheckConstraintColumnName)
 					checkConstraint.CheckConstraintValue = extractColumnNamesWithParenthesis(res1, checkWordIndex +1)
 					checkConstraint.CheckConstraintValue = columnNameCleanUp(checkConstraint.CheckConstraintValue)
 					tableX[indexOfTableX].CheckConstraints = append(tableX[indexOfTableX].CheckConstraints, checkConstraint)
-					// fmt.Println("last appended CheckConstraints: ", tableX[indexOfTableX].CheckConstraints[len(tableX[indexOfTableX].CheckConstraints)-1])
+					//fmt.Println("last appended CheckConstraints: ", tableX[indexOfTableX].CheckConstraints[len(tableX[indexOfTableX].CheckConstraints)-1])
 				}
 				if foreignWordIndex > 0 && keyWordIndex > 0 && referenceWordIndex > 0 {
 					var fkDetails foreign_key_details
@@ -398,7 +456,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 
 					if onWordIndex > 0 {
 						onClauseSlice := res1[onWordIndex+1:]
-						onClause := strings.Join(onClauseSlice, " ")
+						onClause = strings.Join(onClauseSlice, " ")
 						onClause = strings.ReplaceAll(onClause, ";", "")
 						// fmt.Println("onClause: ", onClause)
 					}
@@ -446,7 +504,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 				// fmt.Println(`Inside "ALTER" && res1[3] == "ADD" && res1[4] == "COLUMN"`)
 				// fmt.Println(res1)
 				for i:=0; i<len(tableX); i++{
-					var tabColumns table_columns
+					var tabColumns Table_columns
 					if tableX[i].Table_name == strings.TrimSpace(res1[2][1:len(res1[2])-1]) { 
 						tabColumns.Column_name = strings.TrimSpace(res1[5][1:len(res1[5])-1])
 						tabColumns.ColumnType = strings.TrimSpace(res1[6][0:])
@@ -503,6 +561,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			}
 		}
 		for j:=0; j<len(tableX[i].ForeignKeys); j++{
+			// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name)
 			// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
 		}
 	}
@@ -522,9 +581,6 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			// time.Sleep(2 * time.Second)
 			for j :=0; j < len(tableX[i].ForeignKeys); j++{
 				var relatedTable RelatedTable
-				// fmt.Println("at the start of loop---->tableX[i].Table_name: ", tableX[i].Table_name)
-				// fmt.Println("at the start of loop---->tableX[i].ForeignKeys: ", tableX[i].ForeignKeys[j])
-				// fmt.Println("at the start of loop---->relatedTables: ",relatedTables)
 				// fmt.Println("at the start of loop---->relatedTable: ",relatedTable)
 				// time.Sleep(2 * time.Second)
 				relatedTable.FK_Related_TableName = tableX[i].ForeignKeys[j].FK_Related_TableName
@@ -631,13 +687,300 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 	//////Print DBSchemaReader////
 	for i := 0; i < len(tableX); i++ {
 		// fmt.Println("Table_name: ",tableX[i].Table_name)
-		for j := 0; j < len(tableX[i].Table_Columns); j++ {
-			// fmt.Println("	Column_name: ",tableX[i].Table_Columns[j].Column_name)
+		for i := 0; i < len(tableX[i].Table_Columns); i++ {
+			// fmt.Println("tableX[i].Table_Columns[j]: ",tableX[i].Table_Columns[j])
 		}
-		for j := 0; j < len(tableX[i].ForeignKeys); j++ {
-			// fmt.Println("	ForeignKeys: ",tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ",tableX[i].ForeignKeys[j].FK_Related_TableName,  "FK_Related_Table_Column: ",tableX[i].ForeignKeys[j].FK_Related_Table_Column)
+	}
+
+	//////Identifying user management table////
+	// isUserTable := false					
+	for i := 0; i < len(tableX); i++ {
+		hasUserColumns := false
+		hasAuthColumns := false
+		hasDateColumns := false
+		// hasStatusColumns := false
+		// hasLoginNameColumns := false
+		// hasSecurityColumns := false
+		// hasOtherColumns := false
+			hasUserName := strings.Contains(strings.ToLower(tableX[i].Table_name), "user") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "users") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "account") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "accounts") ||
+						// Authentication related
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "auth") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "authentication") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "login") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "signin") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "member") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "members") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "membership") ||
+						// Profile related
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "profile") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "profiles") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "person") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "persons") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "people") ||
+						// Employee/Customer related
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "employee") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "employees") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "customer") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "customers") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "client") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "clients") ||
+						// Identity related
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "identity") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "identities") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "credential") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "credentials")	
+			if hasUserName {
+				tableX[i].UserTableSpecs.TableName = tableX[i].Table_name
+				for x, column := range tableX[i].Table_Columns {
+					// fmt.Println("tableX[i].Table_Columns[x]: ",tableX[i].Table_Columns[x])
+					// fmt.Println("1column: ", column)
+					colName := strings.ToLower(column.Column_name)
+					// User Table Authentication columns
+					if colName == "password" || colName == "password_hash" || colName == "passwordhash" ||
+					colName == "pass_hash" || colName == "passhash" || colName == "pwd" || colName == "pwd_hash" ||
+					colName == "hashed_password" || colName == "hashedpassword" || colName == "encrypted_password" ||
+					colName == "encryptedpassword" {
+						hasAuthColumns = true
+						tableX[i].UserTableSpecs.AuthColumnName = tableX[i].Table_Columns[x].Column_name
+					}
+					// Date columns
+					if colName == "registration_date" || colName == "registrationdate" || colName == "signup_date" ||
+					colName == "created_date" || colName == "join_date" || colName == "joindate" ||
+					colName == "last_login" || colName == "lastlogin" || colName == "last_access" ||
+					colName == "password_created_at" || colName == "password_changed_at" || colName == "password_updated_at" ||
+					colName == "passwordcreatedat" || colName == "passwordchangedat" || colName == "passwordupdatedat" ||
+					colName == "createdat" || colName == "changedat" || colName == "updatedat" ||
+					colName == "created_at" || colName == "changed_at" || colName == "updated_at" {
+						hasDateColumns = true
+						tableX[i].UserTableSpecs.DateColumnName = tableX[i].Table_Columns[x].Column_name
+					}
+					// Status/Role columns
+					if colName == "status" || colName == "user_status" || colName == "account_status" ||
+					colName == "role" || colName == "user_role" || colName == "role_id" ||
+					colName == "is_active" || colName == "isactive" || colName == "active" ||
+					colName == "is_verified" || colName == "isverified" || colName == "verified" ||
+					colName == "is_deleted" || colName == "isdeleted" || colName == "deleted" ||
+					colName == "is_blocked" || colName == "isblocked" || colName == "blocked" {
+						// hasStatusColumns = true
+						// tableX[i].UserTableSpecs.StatusColumnName = tableX[i].Table_Columns[x].Column_name
+					}
+					// Email/Username columns
+					if colName == "email" || colName == "email_address" || colName == "emailaddress" ||
+					colName == "username" || colName == "user_name" || colName == "login_name" || colName == "loginname" ||
+					colName == "login" {
+						// hasLoginNameColumns = true
+						// tableX[i].UserTableSpecs.LoginNameColumnName = tableX[i].Table_Columns[x].Column_name
+					}
+					// Token/Security columns
+					if colName == "reset_token" || colName == "verification_code" || colName == "verificationcode" ||
+					colName == "verification_token" || colName == "verificationtoken" || colName == "api_token" ||
+					colName == "refresh_token" || colName == "access_token" || colName == "is_email_verified" ||
+					colName == "isemailverified" || colName == "email_verification_code" || colName == "emailverificationcode" ||
+					colName == "verification_code_validity" || colName == "verificationcode_alidity" ||
+					colName == "code_validity" || colName == "codevalidity" {
+						// hasSecurityColumns = true
+						// tableX[i].UserTableSpecs.SecurityColumnName = tableX[i].Table_Columns[x].Column_name
+					}
+					// Other columns
+					if colName == "first_name" || colName == "firstname" || colName == "fname" ||
+					colName == "last_name" || colName == "lastname" || colName == "lname" ||
+					colName == "full_name" || colName == "fullname" || colName == "display_name" ||
+					colName == "displayname" || colName == "phone" || colName == "phone_number" ||
+					colName == "phonenumber" || colName == "mobile" || colName == "mobile_number" ||
+					colName == "mobilenumber" || colName == "contact_number" || colName == "profile_picture" ||
+					colName == "avatar" || colName == "photo" || colName == "bio" || colName == "biography" ||
+					colName == "about" || colName == "address" || colName == "street_address" || colName == "city" ||
+					colName == "state" || colName == "country" || colName == "postal_code" || colName == "zip_code" ||
+					colName == "employee_id" || colName == "employeeid" || colName == "emp_id" ||
+					colName == "department" || colName == "department_id" || colName == "position" {
+						// hasOtherColumns = true
+					}
+				}
+				// if hasAuthColumns && hasDateColumns && hasStatusColumns && hasLoginNameColumns && hasSecurityColumns && hasOtherColumns {
+				if hasAuthColumns && hasDateColumns {
+					hasUserColumns = true
+				}				
+			}
+			if hasUserName && hasUserColumns {
+				tableX[i].IsUserTable = true
+				break
+			}
+	}
+
+	//////Identifying session management table////
+	for i := 0; i < len(tableX); i++ {
+		hasSessionColumns := false
+		hasTokenColumns := false
+		hasCreateTimingColumns := false
+		hasExpiryTimingColumns := false
+		hasSessionStatusColumns := false
+		// hasAgentColumns := false
+		// hasClientIPColumns :=false
+		// hasDeviceColumns := false
+		// hasLocationColumns := false
+		// hasSecurityColumns := false
+		// isSessionsTable := false					
+		// 1. Check table name (existing check)
+		hasSessionName := strings.Contains(strings.ToLower(tableX[i].Table_name), "session") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "sessions") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "user_session") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "usersession") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "users_sessions") || 
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "usersession") ||
+						// Authentication session variants
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "auth_session") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "auth_sessions") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "authsession") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "authsessions") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "login_session") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "login_sessions") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "loginsession") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "loginsessions") ||
+						// Token-based sessions
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "session_token") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "sessiontoken") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "access_token") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "accesstoken") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "refresh_token") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "refreshtoken") ||
+						// Activity/tracking sessions
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "activity_session") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "user_activity") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "login_log") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "loginlog") ||
+						// Security/audit sessions
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "security_session") ||
+						strings.Contains(strings.ToLower(tableX[i].Table_name), "audit_session")
+			if hasSessionName {
+				for x, column := range tableX[i].Table_Columns {
+					// fmt.Println("tableX[i].Table_Columns[x]: ",tableX[i].Table_Columns[x])
+					// fmt.Println("1column: ", column)
+					colName := strings.ToLower(column.Column_name)
+					// Token columns
+					if colName == "session_token" || colName == "sessiontoken" || colName == "token" ||
+					colName == "session_id" || colName == "sessionid" || 
+					colName == "access_token" || colName == "accesstoken" ||
+					colName == "refresh_token" || colName == "refreshtoken" {
+						hasTokenColumns = true
+						tableX[i].SessionTableSpecs.TokenColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// Token Create Timing columns
+					if  ((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "timestamptz") || 
+					((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "date") {
+						hasCreateTimingColumns = true
+						tableX[i].SessionTableSpecs.CreateTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// Token Expiry Timing columns
+					if ((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
+					colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "timestamptz") || 
+					((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
+					colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "date") {
+						hasExpiryTimingColumns = true
+						tableX[i].SessionTableSpecs.ExpiryTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// Status/Role columns
+					if colName == "is_active" || colName == "isactive" || colName == "active" ||
+					colName == "is_blocked" || colName == "isblocked" || colName == "blocked" ||
+					colName == "is_valid" || colName == "isvalid" || colName == "valid" ||
+					colName == "is_revoked" || colName == "isrevoked" || colName == "revoked" {
+						hasSessionStatusColumns = true
+						tableX[i].SessionTableSpecs.StatusColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// User Client IP columns
+					if colName == "ip_address" || colName == "client" || colName == "client_ip" ||
+					colName == "clientip" || colName == "ipaddress" || colName == "ip" {
+						// hasClientIPColumns = true
+						// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+
+					}
+					// User Agent columns
+					if colName == "user_agent" || colName == "useragent" || colName == "agent" {
+						// hasAgentColumns = true
+						// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+
+					}
+					// Device columns
+					if colName == "device" || colName == "device_type" || colName == "devicetype" ||
+					colName == "browser" || colName == "browser_name" || colName == "browsername" ||
+					colName == "platform" || colName == "os" || colName == "operating_system" {
+						// hasDeviceColumns = true
+						// tableX[i].SessionTableSpecs.DeviceColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// Location columns
+					if colName == "location" || colName == "country" || colName == "city" ||
+					colName == "timezone" || colName == "time_zone" {
+						// hasLocationColumns = true
+						// tableX[i].SessionTableSpecs.LocationColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}
+					// Security columns
+					if colName == "fingerprint" || colName == "device_fingerprint" ||
+					colName == "csrf_token" || colName == "csrftoken" {
+						// hasSecurityColumns = true
+						// tableX[i].SessionTableSpecs.SecurityColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+					}					
+				}
+				if hasTokenColumns && hasCreateTimingColumns && hasExpiryTimingColumns && hasSessionStatusColumns {
+				// hasAgentColumns && hasClientIPColumns && hasDeviceColumns && hasLocationColumns && hasSecurityColumns {
+					hasSessionColumns = true
+				}				
+			}
+		var refTableHasUserName bool
+		var hasUserReference bool	
+		for  _, column := range tableX[i].ForeignKeys  {
+			// Check if this foreign key references a user table
+			refTableName := strings.ToLower(column.FK_Related_TableName)
+			refTableHasUserName = strings.Contains(refTableName, "user") || 
+						strings.Contains(refTableName, "users") || 
+						strings.Contains(refTableName, "account") || 
+						strings.Contains(refTableName, "accounts") ||
+						// Authentication related
+						strings.Contains(refTableName, "auth") ||
+						strings.Contains(refTableName, "authentication") ||
+						strings.Contains(refTableName, "login") ||
+						strings.Contains(refTableName, "signin") ||
+						strings.Contains(refTableName, "member") ||
+						strings.Contains(refTableName, "members") ||
+						strings.Contains(refTableName, "membership") ||
+						// Profile related
+						strings.Contains(refTableName, "profile") ||
+						strings.Contains(refTableName, "profiles") ||
+						strings.Contains(refTableName, "person") ||
+						strings.Contains(refTableName, "persons") ||
+						strings.Contains(refTableName, "people") ||
+						// Employee/Customer related
+						strings.Contains(refTableName, "employee") ||
+						strings.Contains(refTableName, "employees") ||
+						strings.Contains(refTableName, "customer") ||
+						strings.Contains(refTableName, "customers") ||
+						strings.Contains(refTableName, "client") ||
+						strings.Contains(refTableName, "clients") ||
+						// Identity related
+						strings.Contains(refTableName, "identity") ||
+						strings.Contains(refTableName, "identities") ||
+						strings.Contains(refTableName, "credential") ||
+						strings.Contains(refTableName, "credentials")
+			if refTableHasUserName {
+				for _, element := range tableX[i].Table_Columns {
+					if element.Column_name == column.FK_Column {
+						tableX[i].SessionTableSpecs.RefUserTableName = refTableName
+						tableX[i].SessionTableSpecs.RefUserTableColumn = strings.ToLower(column.FK_Related_Table_Column)
+						tableX[i].SessionTableSpecs.FkUserColumn = element.ColumnNameParams		
+					}
+				}
+				hasUserReference = true
+				break
+			}	
 		}
-	} 
+		if hasSessionName && hasSessionColumns && hasUserReference {
+			// isSessionsTable = true
+			tableX[i].IsSessionsTable = true
+			break
+		}
+
+	}
 
     // Create a map to easily look up tables by name
     tableMap := make(map[string]FK_Hierarchy)
@@ -667,107 +1010,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
     //     fmt.Println() // Add an empty line for better readability
     // }
 
-
+	
 	return tableX, fk_HierarchyX
 }
 
-// func main() {
-// 	// go run . ~/Documents/workspaces/dbschemas/old_catalyst_schema.sql
-// 	filePath := os.Args[1]
-// 	var tableX []Table_Struct
-// 	var fk_HierarchyX []FK_Hierarchy
-// 	// _, _ = ReadSchema(filePath, tableX)
-// 	tableX, fk_HierarchyX = ReadSchema(filePath, tableX)
-// 	fmt.Println("From dbschemareader---->len(tableX): ", len(tableX), len(fk_HierarchyX))
-// 	fmt.Println("From dbschemareader---->len(fk_HierarchyX): ", len(fk_HierarchyX))
-// }
-
-
-
-
-
-//////Following code shall not be deleted. Here exists some parts which can be used later on
-
-// func main() {
-// 	// go run . ~/Documents/workspaces/dbschemas/old_catalyst_schema.sql
-// 	filePath := os.Args[1]
-// 	var tableX []Table_Struct
-// 	var fk_HierarchyX []FK_Hierarchy
-// 	// _, _ = ReadSchema(filePath, tableX)
-// 	tableX, fk_HierarchyX = ReadSchema(filePath, tableX)
-// 	fmt.Println("len(tableX): ", len(tableX), len(fk_HierarchyX))
-// 	fmt.Println("len(fk_HierarchyX): ", len(fk_HierarchyX))
-	// //////Print DBSchemaReader////
-	// for i := 0; i < len(tableX); i++ {
-	// 	fmt.Println("Table_name: ",tableX[i].Table_name)
-	// 	for j := 0; j < len(tableX[i].Table_Columns); j++ {
-	// 		fmt.Println("	Column_name: ",tableX[i].Table_Columns[j].Column_name)
-	// 	}
-	// 	for j := 0; j < len(tableX[i].ForeignKeys); j++ {
-	// 		fmt.Println("	ForeignKeys: ",tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ",tableX[i].ForeignKeys[j].FK_Related_TableName,  "FK_Related_Table_Column: ",tableX[i].ForeignKeys[j].FK_Related_Table_Column)
-	// 	}
-	// } 
-	// for i := 0; i < len(fk_HierarchyX); i++ {
-	// 	fmt.Println("i: ",i," Table_name: ",fk_HierarchyX[i].TableName)
-	// 	for j := 0; j < len(fk_HierarchyX[i].RelatedTablesLevels); j++ {
-	// 		fmt.Println("	j: ",j,"	fk_HierarchyX[i].RelatedTablesLevels[j].Hierarchy_TableName: ", fk_HierarchyX[i].RelatedTablesLevels[j].Hierarchy_TableName)
-	// 		for k := 0; k < len(fk_HierarchyX[i].RelatedTablesLevels[j].RelatedTableList); k++ {
-	// 			fmt.Println("		k: ",k,"	fk_HierarchyX[i].RelatedTablesLevels[j].RelatedTableList[k].FK_Related_TableName: ",fk_HierarchyX[i].RelatedTablesLevels[j].RelatedTableList[k].FK_Related_TableName)
-	// 		}
-	// 	}
-	// }
-	///////////////////////////////////////////////
-    // Create a map to easily look up tables by name
-    // tableMap := make(map[string]FK_Hierarchy)
-    // for _, hierarchy := range fk_HierarchyX {
-    //     tableMap[hierarchy.TableName] = hierarchy
-    // }
-    
-    // // For each table, print its full hierarchy
-    // for i, hierarchy := range fk_HierarchyX {
-    //     fmt.Println("i:", i, "Table_name:", hierarchy.TableName)
-        
-    //     // Print the direct relationships
-    //     for j := 0; j < len(hierarchy.RelatedTablesLevels); j++ {
-    //         level := hierarchy.RelatedTablesLevels[j]
-    //         fmt.Println("    j:", j, "    Hierarchy_TableName:", level.Hierarchy_TableName)
-            
-    //         // For each related table, print its relationships
-    //         for k := 0; k < len(level.RelatedTableList); k++ {
-    //             relatedTable := level.RelatedTableList[k]
-    //             fmt.Println("        k:", k, "    Direct dependency:", relatedTable.FK_Related_TableName)
-                
-    //             // Now traverse up the chain to print the full hierarchy
-	// 			// time.Sleep(3 * time.Second)
-    //             // printTableChain(relatedTable.FK_Related_TableName, tableMap, 3)
-    //         }
-    //     }
-    //     fmt.Println() // Add an empty line for better readability
-    // }
-	//////////////////////////////////////////////
-// }
-
-// func printTableChain(tableName string, tableMap map[string]FK_Hierarchy, indentLevel int) {
-//     // Check if the table exists in our map
-//     hierarchy, exists := tableMap[tableName]
-//     if !exists {
-//         return
-//     }
-    
-//     // Get the indent string based on the level
-//     indent := strings.Repeat("    ", indentLevel)
-    
-//     // For each level in this table's hierarchy
-//     for j := 0; j < len(hierarchy.RelatedTablesLevels); j++ {
-//         level := hierarchy.RelatedTablesLevels[j]
-        
-//         // For each related table at this level
-//         for k := 0; k < len(level.RelatedTableList); k++ {
-//             relatedTable := level.RelatedTableList[k]
-//             fmt.Println(indent + "Indirect dependency:", relatedTable.FK_Related_TableName)
-            
-//             // Recursively print this table's dependencies
-//             printTableChain(relatedTable.FK_Related_TableName, tableMap, indentLevel+1)
-//         }
-//     }
-// }
