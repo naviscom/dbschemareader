@@ -8,12 +8,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	// "time"
+	"time"
 
 )
 type SessionTableSpecs struct {
 	TableName				string
 	TokenColumnName 		string
+	SessionIdColumnName		string
 	CreateTimingColumnName	string
 	ExpiryTimingColumnName	string
 	StatusColumnName		string
@@ -22,6 +23,7 @@ type SessionTableSpecs struct {
 	LocationColumnName		string
 	SecurityColumnName		string
 	FkUserColumn			string
+	FkUserColumn2			string
 	RefUserTableName		string
 	RefUserTableColumn		string
 }
@@ -59,6 +61,11 @@ type CompositeForeignKeysAndReferences struct {
 	CompositeForeignKeys			string
 	CompositeForeignKeysReferences 	string
 	CompositeForeignKeysOnClause	string
+	FK_Related_TableName					string
+	FK_Related_SingularTableName			string
+	FK_Related_TableName_Singular_Object	string
+	FK_Related_TableName_Plural_Object		string
+	FK_Related_Table_Column					string
 }
 
 type CompositeUniqueConstraint struct {
@@ -116,11 +123,12 @@ type RelatedTables struct {
 
 type RelatedTable struct {
 	FK_Related_TableName					string
-	FK_Related_Table_Column					string
 	FK_Related_SingularTableName			string
-	FK_Related_TableName_Plural_Object		string
 	FK_Related_TableName_Singular_Object	string
+	FK_Related_TableName_Plural_Object		string
+	FK_Related_Table_Column					string
 }
+
 // Alternative simpler approach if you prefer not to use regex
 func extractColumnNameSimple(constraintExpr string) string {
 	expr := strings.TrimSpace(constraintExpr)
@@ -236,6 +244,7 @@ func columnNameCleanUp(columnName string) string {
 
 func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_Hierarchy) {
 //func ReadSchema(filePath string, tableX []sqlcq_test.Table_Struct)  ([]sqlcq_test.Table_Struct, []FK_Hierarchy) {
+	fmt.Println("Time: ",time.Now())
 	// fmt.Println("filePath: ",filePath, "tableX: ",tableX)
 	// var tableX []Table_Struct
 	var table Table_Struct
@@ -428,11 +437,22 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					checkConstraint.CheckConstraintTableName = tableX[indexOfTableX].Table_name
 					// fmt.Println("res1: ", res1,  "res1[checkWordIndex +1]: ", res1[checkWordIndex +1])
 					checkConstraint.CheckConstraintColumnName = strings.ReplaceAll(res1[checkWordIndex +1], "(", "")
-					// fmt.Println("checkConstraint.CheckConstraintColumnName: ", checkConstraint.CheckConstraintColumnName)
 					checkConstraint.CheckConstraintColumnName = extractColumnNameSimple(checkConstraint.CheckConstraintColumnName)
 					// fmt.Println("checkConstraint.CheckConstraintColumnName: ", checkConstraint.CheckConstraintColumnName)
 					checkConstraint.CheckConstraintValue = extractColumnNamesWithParenthesis(res1, checkWordIndex +1)
 					checkConstraint.CheckConstraintValue = columnNameCleanUp(checkConstraint.CheckConstraintValue)
+					CheckConstraintValueArray := strings.Split(strings.TrimSpace(checkConstraint.CheckConstraintValue)," ")
+					checkConstraint.CheckConstraintColumnName = strings.TrimSpace(CheckConstraintValueArray[0])
+					// if checkConstraint.CheckConstraintTableName == "users" {
+					// 	fmt.Println("res1: ", res1)
+					// 	fmt.Println("res1[checkWordIndex +1]: ", res1[checkWordIndex +1])
+					// 	fmt.Println("checkConstraint.CheckConstraintName: ", checkConstraint.CheckConstraintName)
+					// 	fmt.Println("checkConstraint.CheckConstraintTableName: ", checkConstraint.CheckConstraintTableName)
+					// 	fmt.Println("checkConstraint.CheckConstraintColumnName: ", checkConstraint.CheckConstraintColumnName)
+					// 	fmt.Println("checkConstraint.CheckConstraintValue: ", checkConstraint.CheckConstraintValue)
+	
+					// }
+
 					tableX[indexOfTableX].CheckConstraints = append(tableX[indexOfTableX].CheckConstraints, checkConstraint)
 					//fmt.Println("last appended CheckConstraints: ", tableX[indexOfTableX].CheckConstraints[len(tableX[indexOfTableX].CheckConstraints)-1])
 				}
@@ -463,11 +483,30 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 
 					if strings.Contains(foreignKeyColumn, ",") {
 						compositeForeignKeysAndReferences.CompositeForeignKeys = foreignKeyColumn
-						compositeForeignKeysAndReferences.CompositeForeignKeysReferences = relatedTableColumn
+						compositeForeignKeysAndReferences.CompositeForeignKeysReferences = relatedTable + " " + relatedTableColumn
 						compositeForeignKeysAndReferences.CompositeForeignKeysOnClause = onClause
+
+						compositeForeignKeysAndReferences.FK_Related_TableName = relatedTable
+						if strings.TrimSpace(relatedTable[len(relatedTable)-3:]) == `ies` {
+							compositeForeignKeysAndReferences.FK_Related_SingularTableName = strings.TrimSpace(relatedTable[:len(relatedTable)-3])+"y"
+						}else if strings.TrimSpace(relatedTable[len(relatedTable)-1:]) == `s` {
+							compositeForeignKeysAndReferences.FK_Related_SingularTableName = strings.TrimSpace(relatedTable[:len(relatedTable)-1])
+						}else {
+							compositeForeignKeysAndReferences.FK_Related_SingularTableName = relatedTable
+						}	
+						if strings.TrimSpace(relatedTable[len(relatedTable)-3:]) == `ies` {
+							compositeForeignKeysAndReferences.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(relatedTable[0:1]))+strings.TrimSpace(relatedTable[1:len(relatedTable)-3]+"y")
+						} else if strings.TrimSpace(relatedTable[len(relatedTable)-1:]) == `s` {
+							compositeForeignKeysAndReferences.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(relatedTable[0:1]))+strings.TrimSpace(relatedTable[1:len(relatedTable)-1])
+						} else {
+							compositeForeignKeysAndReferences.FK_Related_TableName_Singular_Object = strings.ToUpper(strings.TrimSpace(relatedTable[0:1]))+strings.TrimSpace(relatedTable[1:])
+						}						
+						compositeForeignKeysAndReferences.FK_Related_TableName_Plural_Object = strings.ToUpper(strings.TrimSpace(relatedTable[0:1]))+strings.TrimSpace(relatedTable[1:])
+						compositeForeignKeysAndReferences.FK_Related_Table_Column = relatedTableColumn
+
+
 						tableX[indexOfTableX].CompositeForeignKeys = append(tableX[indexOfTableX].CompositeForeignKeys, compositeForeignKeysAndReferences)
 						// fmt.Println("last appended CompositeForeignKeys: ", tableX[indexOfTableX].CompositeForeignKeys[len(tableX[indexOfTableX].CompositeForeignKeys)-1])
-
 					} else {
 						fkDetails.FK_Column = foreignKeyColumn
 						fkDetails.FK_Related_TableName = relatedTable
@@ -549,6 +588,10 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			}
 		}
 	}
+	// fmt.Println("I am here")
+
+
+
 	for i:=0; i<len(tableX); i++{
 		// fmt.Println("table Name: ", tableX[i].Table_name, "OutputFileName: ", tableX[i].OutputFileName,  "FunctionSignature: ", tableX[i].FunctionSignature, "FunctionSignature2: ", tableX[i].FunctionSignature2)
 		for j:=0; j<len(tableX[i].Table_Columns); j++{
@@ -564,8 +607,16 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name)
 			// fmt.Println("    FK_Column: ", tableX[i].ForeignKeys[j].FK_Column, "FK_Related_TableName: ", tableX[i].ForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].ForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].ForeignKeys[j].FK_Related_Table_Column)
 		}
+		for j:=0; j<len(tableX[i].CompositeForeignKeys); j++{
+			// fmt.Println("tableX[i].Table_name: ",tableX[i].Table_name)
+			// fmt.Println("    FK_Related_TableName: ", tableX[i].CompositeForeignKeys[j].FK_Related_TableName, "FK_Related_SingularTableName: ", tableX[i].CompositeForeignKeys[j].FK_Related_SingularTableName, "FK_Related_Table_Column: ", tableX[i].CompositeForeignKeys[j].FK_Related_Table_Column)
+		}
 	}
-	//////////////////////////////////////////////
+
+
+
+
+	////////////////////Building Relationship Hierarchy//////////////////////////
 	var relatedTables RelatedTables
 	var fk_Hierarchy FK_Hierarchy
 	var fk_HierarchyX []FK_Hierarchy
@@ -579,7 +630,7 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			// fmt.Println("inside if  len(tableX[i].ForeignKeys) > 0", "tableX[i].ForeignKeys: ", tableX[i].ForeignKeys)
 			// fmt.Println("I am going inside the loop..")
 			// time.Sleep(2 * time.Second)
-			for j :=0; j < len(tableX[i].ForeignKeys); j++{
+			for j :=0; j < len(tableX[i].ForeignKeys); j++ {
 				var relatedTable RelatedTable
 				// fmt.Println("at the start of loop---->relatedTable: ",relatedTable)
 				// time.Sleep(2 * time.Second)
@@ -600,7 +651,66 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
 			// fmt.Println("fk_HierarchyX[len(fk_HierarchyX)-1]: ", fk_HierarchyX[len(fk_HierarchyX)-1])
 			// time.Sleep(2 * time.Second)
-		}else{
+		// 	////following is the new addition/////
+		// 	if len(tableX[i].CompositeForeignKeys) > 0 {
+		// 		for j :=0; j < len(tableX[i].CompositeForeignKeys); j++ {
+		// 			var relatedTable RelatedTable
+		// 			// fmt.Println("at the start of loop---->relatedTable: ",relatedTable)
+		// 			// time.Sleep(2 * time.Second)
+		// 			// compositeForeignKeysReferences := strings.Split(tableX[i].CompositeForeignKeys[j].CompositeForeignKeysReferences, " ")
+
+		// 			relatedTable.FK_Related_TableName = tableX[i].CompositeForeignKeys[j].FK_Related_TableName
+		// 			relatedTable.FK_Related_SingularTableName = tableX[i].CompositeForeignKeys[j].FK_Related_SingularTableName
+		// 			relatedTable.FK_Related_TableName_Singular_Object = tableX[i].CompositeForeignKeys[j].FK_Related_TableName_Singular_Object
+		// 			relatedTable.FK_Related_TableName_Plural_Object = tableX[i].CompositeForeignKeys[j].FK_Related_TableName_Plural_Object
+		// 			relatedTable.FK_Related_Table_Column = tableX[i].CompositeForeignKeys[j].FK_Related_Table_Column
+		// 			relatedTables.Hierarchy_TableName = tableX[i].Table_name
+		// 			relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
+		// 			// fmt.Println("towards the end of loop---->relatedTable: ",relatedTable)
+		// 			// fmt.Println("towards the end of loop---->relatedTables: ",relatedTables)
+		// 			// time.Sleep(2 * time.Second)
+		// 		}
+		// 		fk_Hierarchy.TableName = tableX[i].Table_name
+		// 		fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
+		// 		// fmt.Println("fk_Hierarchy.RelatedTablesLevels: ", fk_Hierarchy.RelatedTablesLevels)
+		// 		fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
+		// 		// fmt.Println("fk_HierarchyX[len(fk_HierarchyX)-1]: ", fk_HierarchyX[len(fk_HierarchyX)-1])
+		// 		// time.Sleep(2 * time.Second)
+		// 	}
+		// } else if len(tableX[i].ForeignKeys) == 0 && len(tableX[i].CompositeForeignKeys) > 0 {
+		// 	if len(tableX[i].CompositeForeignKeys) > 0 {
+		// 		for j :=0; j < len(tableX[i].CompositeForeignKeys); j++ {
+		// 			var relatedTable RelatedTable
+		// 			// fmt.Println("at the start of loop---->relatedTable: ",relatedTable)
+		// 			// time.Sleep(2 * time.Second)
+		// 			// compositeForeignKeysReferences := strings.Split(tableX[i].CompositeForeignKeys[j].CompositeForeignKeysReferences, " ")
+		// 			// relatedTable.FK_Related_TableName = compositeForeignKeysReferences[0]
+		// 			// relatedTable.FK_Related_SingularTableName = compositeForeignKeysReferences[0]
+		// 			// relatedTable.FK_Related_TableName_Singular_Object = compositeForeignKeysReferences[0]
+		// 			// relatedTable.FK_Related_TableName_Plural_Object = compositeForeignKeysReferences[0]
+		// 			// relatedTable.FK_Related_Table_Column = compositeForeignKeysReferences[1]
+	
+		// 			relatedTable.FK_Related_TableName = tableX[i].CompositeForeignKeys[j].FK_Related_TableName
+		// 			relatedTable.FK_Related_SingularTableName = tableX[i].CompositeForeignKeys[j].FK_Related_SingularTableName
+		// 			relatedTable.FK_Related_TableName_Singular_Object = tableX[i].CompositeForeignKeys[j].FK_Related_TableName_Singular_Object
+		// 			relatedTable.FK_Related_TableName_Plural_Object = tableX[i].CompositeForeignKeys[j].FK_Related_TableName_Plural_Object
+		// 			relatedTable.FK_Related_Table_Column = tableX[i].CompositeForeignKeys[j].FK_Related_Table_Column
+	
+		// 			relatedTables.Hierarchy_TableName = tableX[i].Table_name
+		// 			relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
+		// 			// fmt.Println("towards the end of loop---->relatedTable: ",relatedTable)
+		// 			// fmt.Println("towards the end of loop---->relatedTables: ",relatedTables)
+		// 			// time.Sleep(2 * time.Second)
+		// 		}
+		// 		fk_Hierarchy.TableName = tableX[i].Table_name
+		// 		fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
+		// 		// fmt.Println("fk_Hierarchy.RelatedTablesLevels: ", fk_Hierarchy.RelatedTablesLevels)
+		// 		fk_HierarchyX = append(fk_HierarchyX, fk_Hierarchy)
+		// 		// fmt.Println("fk_HierarchyX[len(fk_HierarchyX)-1]: ", fk_HierarchyX[len(fk_HierarchyX)-1])
+		// 		// time.Sleep(2 * time.Second)
+		// 	}
+
+		} else {
 			// fmt.Println("inside else  len(tableX[i].ForeignKeys) > 0")
 			fk_Hierarchy.TableName = tableX[i].Table_name
 			fk_Hierarchy.RelatedTablesLevels = append(fk_Hierarchy.RelatedTablesLevels, relatedTables)
@@ -616,7 +726,6 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 		var e int
 		c = 0
 		// fmt.Println("i: ",i,"tableX[i].Table_name: ", tableX[i].Table_name)
-
 		for k :=0; k < len(fk_HierarchyX); k++{
 			// fmt.Println("*********************************************")
 			// fmt.Println("inside for k :=0; k < len(fk_HierarchyX); k++")
@@ -638,12 +747,18 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 						// fmt.Println("		inside for m:=0; m < len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList); m++")
 						// fmt.Println("		***************************************************************************************")
 						// fmt.Println("		m: ", m, "len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList: ", len(fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList))
-						// fmt.Println("		fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList: ", fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList)
+						// fmt.Println("		fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m]: ", fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m])
 						if fk_HierarchyX[k].RelatedTablesLevels[l].Hierarchy_TableName == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName {
-							// fmt.Println("		I am breaking because this is a self referencing case - Hierarchy_TableName == FK_Related_TableName")
+							// fmt.Println("		I am breaking this because this is a self referencing case - Hierarchy_TableName == FK_Related_TableName")
 							break
 						}
-						for z :=0; z < len(tableX); z++{
+						// // Check if the related table is the root table (would create a cycle)
+						// if fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName == fk_HierarchyX[k].TableName {
+						// 	// fmt.Println("		Avoiding cycle back to root table: ", fk_HierarchyX[k].TableName)
+						// 	continue
+						// }
+
+						for z :=0; z < len(tableX); z++ {
 							// fmt.Println("			**************************************")
 							// fmt.Println("			inside for z :=0; z < len(tableX); z++")
 							// fmt.Println("			**************************************")
@@ -651,6 +766,32 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 							// fmt.Println("			fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName: ", fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName)
 							if tableX[z].Table_name == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName {	
 								// fmt.Println("			inside if tableX[z].Table_name == fk_HierarchyX[k].RelatedTablesLevels[l].RelatedTableList[m].FK_Related_TableName")
+
+								// // Simple cycle detection: check if this table already exists at any level
+								// cycleDetected := false
+								
+								// // Check if this is the root table
+								// if tableX[z].Table_name == fk_HierarchyX[k].TableName {
+								// 	fmt.Println("			Cycle back to root table detected: ", tableX[z].Table_name)
+								// 	cycleDetected = true
+								// }
+								
+								// // Check if this table has already been processed in the current hierarchy
+								// if !cycleDetected {
+								// 	for checkLevel := 0; checkLevel < len(fk_HierarchyX[k].RelatedTablesLevels); checkLevel++ {
+								// 		if fk_HierarchyX[k].RelatedTablesLevels[checkLevel].Hierarchy_TableName == tableX[z].Table_name {
+								// 			fmt.Println("			Table ", tableX[z].Table_name, " already exists at level ", checkLevel, " - avoiding cycle")
+								// 			cycleDetected = true
+								// 			break
+								// 		}
+								// 	}
+								// }
+								
+								// if cycleDetected {
+								// 	fmt.Println("			Skipping to prevent cycle")
+								// 	continue
+								// }
+
 								if len(tableX[z].ForeignKeys) > 0 {
 									// fmt.Println("			inside if len(tableX[z].ForeignKeys) > 0")
 									relatedTables.RelatedTableList = nil
@@ -668,22 +809,84 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 										relatedTable.FK_Related_TableName_Plural_Object = tableX[z].ForeignKeys[y].FK_Related_TableName_Plural_Object
 										relatedTables.Hierarchy_TableName = tableX[z].Table_name	
 										relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
-										// fmt.Println("				relatedTables: ", relatedTables)
+										// fmt.Println("				relatedTables.Hierarchy_TableName: ", relatedTables.Hierarchy_TableName)
+										// fmt.Println("				relatedTables.Hierarchy_TableName: ", relatedTables.RelatedTableList[len(relatedTables.RelatedTableList)-1])
 										// time.Sleep(2 * time.Second)
 									}
 									fk_HierarchyX[k].RelatedTablesLevels = append(fk_HierarchyX[k].RelatedTablesLevels, relatedTables)
 									// fmt.Println("			fk_HierarchyX[k].RelatedTablesLevels: ", fk_HierarchyX[k].RelatedTablesLevels)
+
+								// 	if len(tableX[z].CompositeForeignKeys) > 0 {
+								// 		for y :=0; y < len(tableX[z].CompositeForeignKeys); y++{
+								// 			var relatedTable RelatedTable
+								// 			// fmt.Println("				*****************************************************")
+								// 			// fmt.Println("				inside for y :=0; y < len(tableX[z].ForeignKeys); y++")
+								// 			// fmt.Println("				*****************************************************")
+								// 			// fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y]: ", tableX[z].ForeignKeys[y])
+	
+								// 			relatedTable.FK_Related_TableName = tableX[z].CompositeForeignKeys[y].FK_Related_TableName
+								// 			relatedTable.FK_Related_SingularTableName = tableX[z].CompositeForeignKeys[y].FK_Related_SingularTableName
+								// 			relatedTable.FK_Related_TableName_Singular_Object = tableX[z].CompositeForeignKeys[y].FK_Related_TableName_Singular_Object
+								// 			relatedTable.FK_Related_TableName_Plural_Object = tableX[z].CompositeForeignKeys[y].FK_Related_TableName_Plural_Object
+								// 			relatedTable.FK_Related_Table_Column = tableX[z].CompositeForeignKeys[y].FK_Related_Table_Column
+							
+								// 			relatedTables.Hierarchy_TableName = tableX[z].Table_name	
+								// 			relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
+								// 			// fmt.Println("				relatedTables: ", relatedTables)
+								// 			// time.Sleep(2 * time.Second)
+								// 		}
+								// 		fk_HierarchyX[k].RelatedTablesLevels = append(fk_HierarchyX[k].RelatedTablesLevels, relatedTables)
+								// 		// fmt.Println("			fk_HierarchyX[k].RelatedTablesLevels: ", fk_HierarchyX[k].RelatedTablesLevels)	
+								// 	}
+								// } else if len(tableX[z].ForeignKeys) == 0 && len(tableX[z].CompositeForeignKeys) > 0 {
+								// 	if len(tableX[z].CompositeForeignKeys) > 0 {
+								// 		for y :=0; y < len(tableX[z].CompositeForeignKeys); y++{
+								// 			var relatedTable RelatedTable
+								// 			// fmt.Println("				*****************************************************")
+								// 			// fmt.Println("				inside for y :=0; y < len(tableX[z].ForeignKeys); y++")
+								// 			// fmt.Println("				*****************************************************")
+								// 			// fmt.Println("				z: ",z,"y: ",y,"	tableX[z].ForeignKeys[y]: ", tableX[z].ForeignKeys[y])
+		
+								// 			relatedTable.FK_Related_TableName = tableX[z].CompositeForeignKeys[y].FK_Related_TableName
+								// 			relatedTable.FK_Related_SingularTableName = tableX[z].CompositeForeignKeys[y].FK_Related_SingularTableName
+								// 			relatedTable.FK_Related_TableName_Singular_Object = tableX[z].CompositeForeignKeys[y].FK_Related_TableName_Singular_Object
+								// 			relatedTable.FK_Related_TableName_Plural_Object = tableX[z].CompositeForeignKeys[y].FK_Related_TableName_Plural_Object
+								// 			relatedTable.FK_Related_Table_Column = tableX[z].CompositeForeignKeys[y].FK_Related_Table_Column
+	
+								// 			relatedTables.Hierarchy_TableName = tableX[z].Table_name	
+								// 			relatedTables.RelatedTableList = append(relatedTables.RelatedTableList, relatedTable)
+								// 			// fmt.Println("				relatedTables: ", relatedTables)
+								// 			// time.Sleep(2 * time.Second)
+								// 		}
+								// 		fk_HierarchyX[k].RelatedTablesLevels = append(fk_HierarchyX[k].RelatedTablesLevels, relatedTables)
+								// 		// fmt.Println("			fk_HierarchyX[k].RelatedTablesLevels: ", fk_HierarchyX[k].RelatedTablesLevels)										
+								// 	}
 								}
 								break
 							}
+							// time.Sleep(1 * time.Second)
+
 						}
+						// time.Sleep(1 * time.Second)
+
 					}
+					// time.Sleep(1 * time.Second)
+
 				}
 				// fmt.Println("d: ", d)
 				c = d
+				// time.Sleep(1 * time.Second)
+
 			}
+			// time.Sleep(1 * time.Second)
+
 		}
+		// time.Sleep(2 * time.Second)
 	}
+
+
+
+
 	//////Print DBSchemaReader////
 	for i := 0; i < len(tableX); i++ {
 		// fmt.Println("Table_name: ",tableX[i].Table_name)
@@ -854,81 +1057,84 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 						// Security/audit sessions
 						strings.Contains(strings.ToLower(tableX[i].Table_name), "security_session") ||
 						strings.Contains(strings.ToLower(tableX[i].Table_name), "audit_session")
-			if hasSessionName {
-				for x, column := range tableX[i].Table_Columns {
-					// fmt.Println("tableX[i].Table_Columns[x]: ",tableX[i].Table_Columns[x])
-					// fmt.Println("1column: ", column)
-					colName := strings.ToLower(column.Column_name)
-					// Token columns
-					if colName == "session_token" || colName == "sessiontoken" || colName == "token" ||
-					colName == "session_id" || colName == "sessionid" || 
+		if hasSessionName {
+			for x, column := range tableX[i].Table_Columns {
+				// fmt.Println("tableX[i].Table_Columns[x]: ",tableX[i].Table_Columns[x])
+				// fmt.Println("1column: ", column)
+				colName := strings.ToLower(column.Column_name)
+				// Token columns
+				if colName == "session_token" || colName == "sessiontoken" || colName == "token" ||
 					colName == "access_token" || colName == "accesstoken" ||
 					colName == "refresh_token" || colName == "refreshtoken" {
-						hasTokenColumns = true
-						tableX[i].SessionTableSpecs.TokenColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// Token Create Timing columns
-					if  ((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "timestamptz") || 
-					((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "date") {
-						hasCreateTimingColumns = true
-						tableX[i].SessionTableSpecs.CreateTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// Token Expiry Timing columns
-					if ((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
-					colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "timestamptz") || 
-					((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
-					colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "date") {
-						hasExpiryTimingColumns = true
-						tableX[i].SessionTableSpecs.ExpiryTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// Status/Role columns
-					if colName == "is_active" || colName == "isactive" || colName == "active" ||
-					colName == "is_blocked" || colName == "isblocked" || colName == "blocked" ||
-					colName == "is_valid" || colName == "isvalid" || colName == "valid" ||
-					colName == "is_revoked" || colName == "isrevoked" || colName == "revoked" {
-						hasSessionStatusColumns = true
-						tableX[i].SessionTableSpecs.StatusColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// User Client IP columns
-					if colName == "ip_address" || colName == "client" || colName == "client_ip" ||
-					colName == "clientip" || colName == "ipaddress" || colName == "ip" {
-						// hasClientIPColumns = true
-						// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-
-					}
-					// User Agent columns
-					if colName == "user_agent" || colName == "useragent" || colName == "agent" {
-						// hasAgentColumns = true
-						// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-
-					}
-					// Device columns
-					if colName == "device" || colName == "device_type" || colName == "devicetype" ||
-					colName == "browser" || colName == "browser_name" || colName == "browsername" ||
-					colName == "platform" || colName == "os" || colName == "operating_system" {
-						// hasDeviceColumns = true
-						// tableX[i].SessionTableSpecs.DeviceColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// Location columns
-					if colName == "location" || colName == "country" || colName == "city" ||
-					colName == "timezone" || colName == "time_zone" {
-						// hasLocationColumns = true
-						// tableX[i].SessionTableSpecs.LocationColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}
-					// Security columns
-					if colName == "fingerprint" || colName == "device_fingerprint" ||
-					colName == "csrf_token" || colName == "csrftoken" {
-						// hasSecurityColumns = true
-						// tableX[i].SessionTableSpecs.SecurityColumnName = tableX[i].Table_Columns[x].ColumnNameParams
-					}					
+					hasTokenColumns = true
+					tableX[i].SessionTableSpecs.TokenColumnName = tableX[i].Table_Columns[x].ColumnNameParams
 				}
-				if hasTokenColumns && hasCreateTimingColumns && hasExpiryTimingColumns && hasSessionStatusColumns {
-				// hasAgentColumns && hasClientIPColumns && hasDeviceColumns && hasLocationColumns && hasSecurityColumns {
-					hasSessionColumns = true
-				}				
+				// SessionId columns
+				if colName == "session_id" || colName == "sessionid" || colName == "id" {
+					//hasSessionIdColumns = true
+					tableX[i].SessionTableSpecs.SessionIdColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Token Create Timing columns
+				if  ((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "timestamptz") || 
+				((colName == "created_at" || colName == "createdat" || strings.Contains(colName, "create")) && column.ColumnType == "date") {
+					hasCreateTimingColumns = true
+					tableX[i].SessionTableSpecs.CreateTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Token Expiry Timing columns
+				if ((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
+				colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "timestamptz") || 
+				((colName == "expires_at" || colName == "expiresat" || colName == "expiry" ||colName == "expires" || colName == "expiration" ||
+				colName == "expiration_time" || strings.Contains(colName, "expir")) && column.ColumnType == "date") {
+					hasExpiryTimingColumns = true
+					tableX[i].SessionTableSpecs.ExpiryTimingColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Status/Role columns
+				if colName == "is_active" || colName == "isactive" || colName == "active" ||
+				colName == "is_blocked" || colName == "isblocked" || colName == "blocked" ||
+				colName == "is_valid" || colName == "isvalid" || colName == "valid" ||
+				colName == "is_revoked" || colName == "isrevoked" || colName == "revoked" {
+					hasSessionStatusColumns = true
+					tableX[i].SessionTableSpecs.StatusColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// User Client IP columns
+				if colName == "ip_address" || colName == "client" || colName == "client_ip" ||
+				colName == "clientip" || colName == "ipaddress" || colName == "ip" {
+					// hasClientIPColumns = true
+					// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// User Agent columns
+				if colName == "user_agent" || colName == "useragent" || colName == "agent" {
+					// hasAgentColumns = true
+					// tableX[i].SessionTableSpecs.AgentColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Device columns
+				if colName == "device" || colName == "device_type" || colName == "devicetype" ||
+				colName == "browser" || colName == "browser_name" || colName == "browsername" ||
+				colName == "platform" || colName == "os" || colName == "operating_system" {
+					// hasDeviceColumns = true
+					// tableX[i].SessionTableSpecs.DeviceColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Location columns
+				if colName == "location" || colName == "country" || colName == "city" ||
+				colName == "timezone" || colName == "time_zone" {
+					// hasLocationColumns = true
+					// tableX[i].SessionTableSpecs.LocationColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}
+				// Security columns
+				if colName == "fingerprint" || colName == "device_fingerprint" ||
+				colName == "csrf_token" || colName == "csrftoken" {
+					// hasSecurityColumns = true
+					// tableX[i].SessionTableSpecs.SecurityColumnName = tableX[i].Table_Columns[x].ColumnNameParams
+				}					
 			}
+			if hasTokenColumns && hasCreateTimingColumns && hasExpiryTimingColumns && hasSessionStatusColumns {
+			// hasAgentColumns && hasClientIPColumns && hasDeviceColumns && hasLocationColumns && hasSecurityColumns {
+				hasSessionColumns = true
+			}				
+		}
 		var refTableHasUserName bool
-		var hasUserReference bool	
+		var hasUserReference bool
+				
 		for  _, column := range tableX[i].ForeignKeys  {
 			// Check if this foreign key references a user table
 			refTableName := strings.ToLower(column.FK_Related_TableName)
@@ -967,7 +1173,8 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 					if element.Column_name == column.FK_Column {
 						tableX[i].SessionTableSpecs.RefUserTableName = refTableName
 						tableX[i].SessionTableSpecs.RefUserTableColumn = strings.ToLower(column.FK_Related_Table_Column)
-						tableX[i].SessionTableSpecs.FkUserColumn = element.ColumnNameParams		
+						tableX[i].SessionTableSpecs.FkUserColumn = element.ColumnNameParams
+						tableX[i].SessionTableSpecs.FkUserColumn2 = column.FK_Column 
 					}
 				}
 				hasUserReference = true
@@ -979,6 +1186,9 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
 			tableX[i].IsSessionsTable = true
 			break
 		}
+		if tableX[i].IsSessionsTable {
+			fmt.Println("tableX[i].SessionTableSpecs", tableX[i].SessionTableSpecs)		
+		}
 
 	}
 
@@ -988,27 +1198,27 @@ func ReadSchema(filePath string, tableX []Table_Struct)  ([]Table_Struct, []FK_H
         tableMap[hierarchy.TableName] = hierarchy
     }
     
-    // // For each table, print its full hierarchy
-    // for i, hierarchy := range fk_HierarchyX {
-    //     fmt.Println("i:", i, "Table_name:", hierarchy.TableName)
+    // For each table, print its full hierarchy
+    for i, hierarchy := range fk_HierarchyX {
+        fmt.Println("i:", i, "Table_name:", hierarchy.TableName)
         
-    //     // Print the direct relationships
-    //     for j := 0; j < len(hierarchy.RelatedTablesLevels); j++ {
-    //         level := hierarchy.RelatedTablesLevels[j]
-    //         fmt.Println("    j:", j, "    Hierarchy_TableName:", level.Hierarchy_TableName)
+        // Print the direct relationships
+        for j := 0; j < len(hierarchy.RelatedTablesLevels); j++ {
+            level := hierarchy.RelatedTablesLevels[j]
+            fmt.Println("    j:", j, "    Hierarchy_TableName:", level.Hierarchy_TableName)
             
-    //         // For each related table, print its relationships
-    //         for k := 0; k < len(level.RelatedTableList); k++ {
-    //             relatedTable := level.RelatedTableList[k]
-    //             fmt.Println("        k:", k, "    Direct dependency:", relatedTable.FK_Related_TableName)
+            // For each related table, print its relationships
+            for k := 0; k < len(level.RelatedTableList); k++ {
+                relatedTable := level.RelatedTableList[k]
+                fmt.Println("        k:", k, "    Direct dependency:", relatedTable.FK_Related_TableName)
                 
-    //             // Now traverse up the chain to print the full hierarchy
-	// 			// time.Sleep(3 * time.Second)
-    //             // printTableChain(relatedTable.FK_Related_TableName, tableMap, 3)
-    //         }
-    //     }
-    //     fmt.Println() // Add an empty line for better readability
-    // }
+                // Now traverse up the chain to print the full hierarchy
+				// time.Sleep(3 * time.Second)
+                // printTableChain(relatedTable.FK_Related_TableName, tableMap, 3)
+            }
+        }
+        fmt.Println() // Add an empty line for better readability
+    }
 
 	
 	return tableX, fk_HierarchyX
